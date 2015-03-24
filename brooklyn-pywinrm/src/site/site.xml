@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+	<version position="bottom" />
+	<publishDate position="bottom" />
+	<poweredBy>
+		<logo img="http://sflogo.sourceforge.net/sflogo.php?group_id=577607&amp;type=11"
+			width="120" height="30"
+			alt="Get mavenjython at SourceForge.net. Fast, secure and Free Open Source software downloads"
+			href="http://sourceforge.net/projects/mavenjython" />
+	</poweredBy>
+	<body>
+		<links>
+			<item name="Maven-Jython Home" href="http://mavenjython.sourceforge.net/" />
+		</links>
+		<menu name="General">
+			<item name="About" href="index.html" />
+			<item name="Team" href="team-list.html" />
+			<item name="Code Repository" href="source-repository.html" />
+			<item name="Javadoc" href="apidocs/index.html" />
+			<item name="License" href="license.html" />
+		</menu>
+		<menu name="Generated Reports">
+			<item name="Project Dependencies" href="dependencies.html" />
+			<item name="Project Summary" href="project-summary.html" />
+		</menu>
+	</body>
+</project>
