@@ -1,38 +1,42 @@
 package org.apache.brooklyn.windows.pywinrm;
 
-import org.python.core.PyArray;
 import org.python.core.PyObject;
 import org.python.core.PyString;
-import org.python.core.PyType;
+import org.python.core.PyTuple;
 import org.python.util.PythonInterpreter;
 
 public enum WinRMFactory {
     INSTANCE;
 
     private final PythonInterpreter interpreter;
-    private final PyObject winrm;
+    private final PyObject sessionClass;
 
 
     WinRMFactory() {
         this.interpreter = new PythonInterpreter();
-        interpreter.exec("import winrm");
-        winrm = interpreter.get("winrm");
+        interpreter.exec("from winrm import Session");
+        sessionClass = interpreter.get("Session");
     }
 
-    public WinRMSession createSession(String hostname, String username, String password, String transport) {
-        PyArray auth = new PyArray(PyType.fromClass(PyString.class));
-        auth._add(new PyString(username));
-        auth._add(new PyString(password));
-        PyObject buildingObject = winrm.__call__(new PyString(hostname), auth, new PyString(transport));
-        return (WinRMSession)buildingObject.__tojava__(WinRMSession.class);
+    public SessionType createSession(String hostname, String username, String password, String transport) {
+        PyString pyHostname = new PyString(hostname);
+        PyString pyUsername = new PyString(username);
+        PyString pyPassword = new PyString(password);
+        PyString pyTransport = new PyString(transport);
+        PyTuple pyAuth = new PyTuple(pyUsername, pyPassword);
+        PyObject sessionObject = sessionClass.__call__(pyHostname, pyAuth, pyTransport);
+
+        return (SessionType)sessionObject.__tojava__(SessionType.class);
     }
 
-    public WinRMSession createSession(String hostname, String username, String password) {
-        PyArray auth = new PyArray(PyType.fromClass(PyString.class));
-        auth._add(new PyString(username));
-        auth._add(new PyString(password));
-        PyObject buildingObject = winrm.__call__(new PyString(hostname), auth);
-        return (WinRMSession)buildingObject.__tojava__(WinRMSession.class);
+    public SessionType createSession(String hostname, String username, String password) {
+        PyString pyHostname = new PyString(hostname);
+        PyString pyUsername = new PyString(username);
+        PyString pyPassword = new PyString(password);
+        PyTuple pyAuth = new PyTuple(pyUsername, pyPassword);
+        PyObject sessionObject = sessionClass.__call__(pyHostname, pyAuth);
+
+        return (SessionType)sessionObject.__tojava__(SessionType.class);
     }
 
 }
