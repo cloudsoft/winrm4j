@@ -3,8 +3,8 @@ import base64
 import xml.etree.ElementTree as ET
 
 from winrm.protocol import Protocol
-from org.apache.brooklyn.windows.pywinrm import SessionType
-from org.apache.brooklyn.windows.pywinrm import ResponseType
+from io.cloudsoft.winrm4j.pywinrm import SessionType
+from io.cloudsoft.winrm4j.pywinrm import ResponseType
 
 
 class Response(ResponseType):

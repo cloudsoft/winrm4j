@@ -1,4 +1,4 @@
-package org.apache.brooklyn.windows.pywinrm;
+package io.cloudsoft.winrm4j.pywinrm;
 
 public interface SessionType {
     ResponseType run_cmd(String command, String... args);
