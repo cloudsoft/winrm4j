@@ -3,11 +3,11 @@ import base64
 import xml.etree.ElementTree as ET
 
 from winrm.protocol import Protocol
-from io.cloudsoft.winrm4j.pywinrm import SessionType
-from io.cloudsoft.winrm4j.pywinrm import ResponseType
+from io.cloudsoft.winrm4j.pywinrm import Session
+from io.cloudsoft.winrm4j.pywinrm import Response
 
 
-class Response(ResponseType):
+class Response(Response):
     """Response from a remote command execution"""
     def __init__(self, args):
         self.std_out, self.std_err, self.status_code = args
@@ -27,7 +27,7 @@ class Response(ResponseType):
         return self.std_err
 
 
-class Session(SessionType):
+class Session(Session):
     # TODO implement context manager methods
     def __init__(self, target, auth, transport='plaintext'):
         username, password = auth

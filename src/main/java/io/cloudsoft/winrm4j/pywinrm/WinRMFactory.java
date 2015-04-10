@@ -13,12 +13,15 @@ public enum WinRMFactory {
 
 
     WinRMFactory() {
+        // Prevent memory 'leak' leading to OOME
+        // https://wiki.python.org/jython/NewUsersGuide#java-classes-unloading
+        System.setProperty("python.options.internalTablesImpl", "weak");
         this.interpreter = new PythonInterpreter();
         interpreter.exec("from winrm import Session");
         sessionClass = interpreter.get("Session");
     }
 
-    public SessionType createSession(String hostname, String username, String password, String transport) {
+    public Session createSession(String hostname, String username, String password, String transport) {
         PyString pyHostname = new PyString(hostname);
         PyString pyUsername = new PyString(username);
         PyString pyPassword = new PyString(password);
@@ -26,17 +29,17 @@ public enum WinRMFactory {
         PyTuple pyAuth = new PyTuple(pyUsername, pyPassword);
         PyObject sessionObject = sessionClass.__call__(pyHostname, pyAuth, pyTransport);
 
-        return (SessionType)sessionObject.__tojava__(SessionType.class);
+        return (Session)sessionObject.__tojava__(Session.class);
     }
 
-    public SessionType createSession(String hostname, String username, String password) {
+    public Session createSession(String hostname, String username, String password) {
         PyString pyHostname = new PyString(hostname);
         PyString pyUsername = new PyString(username);
         PyString pyPassword = new PyString(password);
         PyTuple pyAuth = new PyTuple(pyUsername, pyPassword);
         PyObject sessionObject = sessionClass.__call__(pyHostname, pyAuth);
 
-        return (SessionType)sessionObject.__tojava__(SessionType.class);
+        return (Session)sessionObject.__tojava__(Session.class);
     }
 
 }

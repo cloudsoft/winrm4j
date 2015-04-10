@@ -1,6 +1,6 @@
 package io.cloudsoft.winrm4j.pywinrm;
 
-public interface ResponseType {
+public interface Response {
     String getStdOut();
     String getStdErr();
     int getStatusCode();
