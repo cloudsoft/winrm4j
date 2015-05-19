@@ -22,7 +22,7 @@
 
   <groupId>io.cloudsoft.windows</groupId>
   <artifactId>winrm4j</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>Java / Jython wrapper for pyWinRM</name>
