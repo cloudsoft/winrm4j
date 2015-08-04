@@ -1,159 +1,58 @@
-# xmltodict
+# winrm4
 
-`xmltodict` is a Python module that makes working with XML feel like you are working with [JSON](http://docs.python.org/library/json.html), as in this ["spec"](http://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html):
+`winrm4j` is a project which enables Java applications to execute batch or PowerShell commands on a remote Windows server 
+using [WinRM](https://msdn.microsoft.com/en-us/library/aa384426(v=vs.85).aspx)
 
-[![Build Status](https://secure.travis-ci.org/martinblech/xmltodict.png)](http://travis-ci.org/martinblech/xmltodict)
+The code is based on the Python project [pywinrm](https://github.com/diyan/pywinrm) and uses [jython](http://www.jython.org/)
+to make the Python classes accessible to Java.
 
-```python
->>> doc = xmltodict.parse("""
-... <mydocument has="an attribute">
-...   <and>
-...     <many>elements</many>
-...     <many>more elements</many>
-...   </and>
-...   <plus a="complex">
-...     element as well
-...   </plus>
-... </mydocument>
-... """)
->>>
->>> doc['mydocument']['@has']
-u'an attribute'
->>> doc['mydocument']['and']['many']
-[u'elements', u'more elements']
->>> doc['mydocument']['plus']['@a']
-u'complex'
->>> doc['mydocument']['plus']['#text']
-u'element as well'
+You can download the latest binaries [here](http://mvnrepository.com/artifact/io.cloudsoft.windows/winrm4j), which also gives the details
+for adding winrm4j as a dependency to your project.
+
+If you wish to build the binaries yourself, you can clone this project, and build it using [Maven](https://maven.apache.org/):
+
+`mvn clean install`
+
+Before connecting to a Windows server, you will need to ensure that the server is accessible and has been configured to allow
+unencrypted WinRM connections over http. The following batch script will configure WinRM and open port 5985 (the default WinRM
+port) on the local firewall.
+
+``` bat
+winrm quickconfig -q
+winrm set winrm/config/service/auth @{Basic="true"}
+winrm set winrm/config/service/auth @{CredSSP="true"}
+winrm set winrm/config/client/auth @{CredSSP="true"}
+winrm set winrm/config/client @{AllowUnencrypted="true"}
+winrm set winrm/config/service @{AllowUnencrypted="true"}
+winrm set winrm/config/winrs @{MaxConcurrentUsers="100"}
+winrm set winrm/config/winrs @{MaxMemoryPerShellMB="0"}
+winrm set winrm/config/winrs @{MaxProcessesPerShell="0"}
+winrm set winrm/config/winrs @{MaxShellsPerUser="0"}
+netsh advfirewall firewall add rule name=RDP dir=in protocol=tcp localport=3389 action=allow profile=any
+netsh advfirewall firewall add rule name=WinRM dir=in protocol=tcp localport=5985 action=allow profile=any
 ```
 
-## Namespace support
+To test connectivity, you can install [Python](https://www.python.org/) and [pywinrm](https://pypi.python.org/pypi/pywinrm) on you development machine,
+then use pywinrm directly in a Python console:
 
-By default, `xmltodict` does no XML namespace processing (it just treats namespace declarations as regular node attributes), but passing `process_namespaces=True` will make it expand namespaces for you:
-
-```python
->>> xml = """
-... <root xmlns="http://defaultns.com/"
-...       xmlns:a="http://a.com/"
-...       xmlns:b="http://b.com/">
-...   <x>1</x>
-...   <a:y>2</a:y>
-...   <b:z>3</b:z>
-... </root>
-... """
->>> xmltodict.parse(xml, process_namespaces=True) == {
-...     'http://defaultns.com/:root': {
-...         'http://defaultns.com/:x': '1',
-...         'http://a.com/:y': '2',
-...         'http://b.com/:z': '3',
-...     }
-... }
-True
+``` python
+import winrm
+s = winrm.Session('my.windows.server.com', auth=('Administrator', 'mypassword'))
+r = s.run_ps("ls")
+r.std_out
+r.std_err
+r.status_code
 ```
 
-It also lets you collapse certain namespaces to shorthand prefixes, or skip them altogether:
+To use winrm4j in Java code, you first create a `Session` object via the `WinRMFactory` class. The session object exposes the methods
+`run_cmd` and `run_ps`, which can be used to execute batch or PowerShell statements respectively.
 
-```python
->>> namespaces = {
-...     'http://defaultns.com/': None, # skip this namespace
-...     'http://a.com/': 'ns_a', # collapse "http://a.com/" -> "ns_a"
-... }
->>> xmltodict.parse(xml, process_namespaces=True, namespaces=namespaces) == {
-...     'root': {
-...         'x': '1',
-...         'ns_a:y': '2',
-...         'http://b.com/:z': '3',
-...     },
-... }
-True
+``` java
+Session session = WinRMFactory.INSTANCE.createSession("my.windows.server.com", "Administrator", "mypassword");
+
+Response response = session.run_cmd("dir C:\\");
+System.out.println(response.getStdOut());
+
+response = session.run_ps("ls C:\\");
+System.out.println(response.getStdOut());
 ```
-
-## Streaming mode
-
-`xmltodict` is very fast ([Expat](http://docs.python.org/library/pyexpat.html)-based) and has a streaming mode with a small memory footprint, suitable for big XML dumps like [Discogs](http://discogs.com/data/) or [Wikipedia](http://dumps.wikimedia.org/):
-
-```python
->>> def handle_artist(_, artist):
-...     print artist['name']
-...     return True
->>> 
->>> xmltodict.parse(GzipFile('discogs_artists.xml.gz'),
-...     item_depth=2, item_callback=handle_artist)
-A Perfect Circle
-Fantômas
-King Crimson
-Chris Potter
-...
-```
-
-It can also be used from the command line to pipe objects to a script like this:
-
-```python
-import sys, marshal
-while True:
-    _, article = marshal.load(sys.stdin)
-    print article['title']
-```
-
-```sh
-$ cat enwiki-pages-articles.xml.bz2 | bunzip2 | xmltodict.py 2 | myscript.py
-AccessibleComputing
-Anarchism
-AfghanistanHistory
-AfghanistanGeography
-AfghanistanPeople
-AfghanistanCommunications
-Autism
-...
-```
-
-Or just cache the dicts so you don't have to parse that big XML file again. You do this only once:
-
-```sh
-$ cat enwiki-pages-articles.xml.bz2 | bunzip2 | xmltodict.py 2 | gzip > enwiki.dicts.gz
-```
-
-And you reuse the dicts with every script that needs them:
-
-```sh
-$ cat enwiki.dicts.gz | gunzip | script1.py
-$ cat enwiki.dicts.gz | gunzip | script2.py
-...
-```
-
-## Roundtripping
-
-You can also convert in the other direction, using the `unparse()` method:
-
-```python
->>> mydict = {
-...     'response': {
-...             'status': 'good',
-...             'last_updated': '2014-02-16T23:10:12Z',
-...     }
-... }
->>> print unparse(mydict, pretty=True)
-<?xml version="1.0" encoding="utf-8"?>
-<response>
-	<status>good</status>
-	<last_updated>2014-02-16T23:10:12Z</last_updated>
-</response>
-```
-
-## Ok, how do I get it?
-
-You just need to
-
-```sh
-$ pip install xmltodict
-```
-
-There is an [official Fedora package for xmltodict](https://admin.fedoraproject.org/pkgdb/acls/name/python-xmltodict). If you are on Fedora or RHEL, you can do:
-
-```sh
-$ sudo yum install python-xmltodict
-```
-
-## Donate
-
-If you love `xmltodict`, consider supporting the author [on Gittip](https://www.gittip.com/martinblech/).
