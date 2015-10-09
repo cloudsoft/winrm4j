@@ -25,11 +25,30 @@ public class WinRmTool {
         this.password = password;
     }
 
+    /**
+     * Execute a list of Windows Native commands as one command.
+     * The method translates the list of commands to a single String command with a <code>" & "</code> delimiter and a terminating one.
+     */
     public WinRmToolResponse executeScript(List<String> commands) {
-        return executeScript(joinScript(commands));
+        return executeCommand(joinCommands(commands));
     }
 
+    /**
+     * @deprecated please use {@link #executeCommand(String)}
+     */
     public WinRmToolResponse executeScript(String commands) {
+        return executeCommand(commands);
+    }
+
+    /**
+     * Executes a Native Windows command.
+     * It is creating a new Shell on the destination host each time it is being called.
+     * @param command The command is limited to 8096 bytes.
+     *                Maximum length of the command can be even smaller depending on the platform.
+     *                https://support.microsoft.com/en-us/kb/830473
+     * @since 0.2
+     */
+    public WinRmToolResponse executeCommand(String command) {
         Builder builder = WinRmClient.builder(getEndpointUrl());
         if (username != null && password != null) {
             builder.credentials(username, password);
@@ -40,7 +59,7 @@ public class WinRmTool {
         StringWriter err = new StringWriter();
 
         try {
-            int code = client.command(commands, out, err);
+            int code = client.command(command, out, err);
             return new WinRmToolResponse(out.toString(), err.toString(), code);
         } finally {
             client.disconnect();
@@ -58,27 +77,31 @@ public class WinRmTool {
         }
     }
 
-    public WinRmToolResponse executePs(List<String> commands) {
-        return executeScript(compilePs(joinPs(commands)));
+    /**
+     * Executes a Power Shell command.
+     * It is creating a new Shell on the destination host each time it is being called.
+     * @since 0.2
+     */
+    public WinRmToolResponse executePs(String psCommand) {
+        return executeCommand(compilePs(psCommand));
     }
 
-    private String compilePs(String psScript) {
+    /**
+     * Execute a list of Power Shell commands as one command.
+     * The method translates the list of commands to a single String command with a <code>"\r\n"</code> delimiter and a terminating one.
+     */
+    public WinRmToolResponse executePs(List<String> commands) {
+        return executeCommand(compilePs(joinPs(commands)));
+    }
+
+    public static String compilePs(String psScript) {
         byte[] cmd = psScript.getBytes(Charset.forName("UTF-16LE"));
         String arg = javax.xml.bind.DatatypeConverter.printBase64Binary(cmd);
         return "powershell -encodedcommand " + arg;
     }
 
-    /**
-     * Batch Script commands appear verbatim in the XML and JAXB will
-     * serialize "\r\n" as "&#xD;\n" in XML which is not recognized
-     * by the Windows service (doesn't unescape &#xD;). Since new lines
-     * in XML are represented as a single "\n" anyway it's fine to
-     * use it as a separator here.
-     * 
-     * TODO cover the case where \r appears in the command?
-     */
-    private String joinScript(List<String> commands) {
-        return join(commands, "\n");
+    private String joinCommands(List<String> commands) {
+        return join(commands, " & ");
     }
 
     /**
