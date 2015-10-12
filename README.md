@@ -1,4 +1,4 @@
-# winrm4
+# winrm4j
 
 `winrm4j` is a project which enables Java applications to execute batch or PowerShell commands on a remote Windows server 
 using [WinRM](https://msdn.microsoft.com/en-us/library/aa384426(v=vs.85).aspx)
