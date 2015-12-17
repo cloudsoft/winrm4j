@@ -54,14 +54,20 @@
 
   <properties>
     <!-- Compilation -->
-    <java.version>1.6</java.version>
+    <java.version>1.7</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-    <!-- Testing -->
-    <surefire.version>2.18</surefire.version>
-
     <jython.version>2.7-b3</jython.version>
+
+    <!-- Testing -->
+    <includedTestGroups />
+    <excludedTestGroups>Integration,Acceptance,Live,WIP</excludedTestGroups>
+    <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
+    <surefire.version>2.18.1</surefire.version>
+    <testng.version>6.8.8</testng.version>
+    <guava.version>18.0</guava.version>
+
   </properties>
 
   <dependencies>
@@ -69,6 +75,18 @@
       <groupId>org.python</groupId>
       <artifactId>jython-standalone</artifactId>
       <version>${jython.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.testng</groupId>
+      <artifactId>testng</artifactId>
+      <version>${testng.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -84,7 +102,7 @@
       <plugins>
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.1</version>
+          <version>3.3</version>
           <configuration>
             <source>${java.version}</source>
             <target>${java.version}</target>
@@ -96,40 +114,40 @@
         </plugin>
         <plugin>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <version>1.3.1</version>
+          <version>1.4.1</version>
         </plugin>
         <plugin>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>2.17</version>
+          <version>2.18.1</version>
         </plugin>
         <plugin>
           <artifactId>maven-jar-plugin</artifactId>
-          <version>2.5</version>
+          <version>2.6</version>
         </plugin>
         <plugin>
           <groupId>org.apache.felix</groupId>
           <artifactId>maven-bundle-plugin</artifactId>
-          <version>2.3.4</version>
+          <version>3.0.0</version>
         </plugin>
         <plugin>
           <artifactId>maven-resources-plugin</artifactId>
-          <version>2.6</version>
+          <version>2.7</version>
         </plugin>
         <plugin>
           <artifactId>maven-source-plugin</artifactId>
-          <version>2.3</version>
+          <version>2.4</version>
         </plugin>
         <plugin>
           <artifactId>maven-assembly-plugin</artifactId>
-          <version>2.4.1</version>
+          <version>2.6</version>
         </plugin>
         <plugin>
           <artifactId>maven-clean-plugin</artifactId>
-          <version>2.5</version>
+          <version>2.6.1</version>
         </plugin>
         <plugin>
           <artifactId>maven-eclipse-plugin</artifactId>
-          <version>2.9</version>
+          <version>2.10</version>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
@@ -137,15 +155,15 @@
         </plugin>
         <plugin>
           <artifactId>maven-javadoc-plugin</artifactId>
-          <version>2.9.1</version>
+          <version>2.10.3</version>
         </plugin>
         <plugin>
           <artifactId>maven-gpg-plugin</artifactId>
-          <version>1.5</version>
+          <version>1.6</version>
         </plugin>
         <plugin>
           <artifactId>maven-release-plugin</artifactId>
-          <version>2.5</version>
+          <version>2.5.2</version>
         </plugin>
         <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
         <plugin>
@@ -420,6 +438,113 @@
           <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
         </snapshotRepository>
       </distributionManagement>
+    </profile>
+
+    <profile>
+      <id>Tests</id>
+      <activation>
+        <file> <exists>${basedir}/src/test</exists> </file>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <enableAssertions>true</enableAssertions>
+              <groups>${includedTestGroups}</groups>
+              <excludedGroups>${excludedTestGroups}</excludedGroups>
+              <testFailureIgnore>false</testFailureIgnore>
+              <printSummary>true</printSummary>
+            </configuration>
+          </plugin>
+          <plugin>
+            <artifactId>maven-jar-plugin</artifactId>
+            <inherited>true</inherited>
+            <executions>
+              <execution>
+                <id>test-jar-creation</id>
+                <goals>
+                  <goal>test-jar</goal>
+                </goals>
+                <configuration>
+                  <forceCreation>true</forceCreation>
+                  <archive combine.self="override" />
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>Integration</id>
+      <properties>
+        <includedTestGroups>Integration</includedTestGroups>
+        <excludedTestGroups>Acceptance,Live,WIP</excludedTestGroups>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-jar-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>test-jar-creation</id>
+                <configuration>
+                   <skip>true</skip>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>Live</id>
+      <properties>
+        <includedTestGroups>Live</includedTestGroups>
+        <excludedTestGroups>Integration,Acceptance,WIP</excludedTestGroups>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-jar-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>test-jar-creation</id>
+                <configuration>
+                  <skip>true</skip>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>Acceptance</id>
+      <properties>
+        <includedTestGroups>Acceptance</includedTestGroups>
+        <excludedTestGroups>Integration,Live,WIP</excludedTestGroups>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-jar-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>test-jar-creation</id>
+                <configuration>
+                  <skip>true</skip>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
 
   </profiles>

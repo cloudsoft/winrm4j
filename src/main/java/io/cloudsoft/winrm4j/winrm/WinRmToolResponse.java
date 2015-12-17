@@ -1,8 +1,6 @@
 package io.cloudsoft.winrm4j.winrm;
 
-import io.cloudsoft.winrm4j.pywinrm.Response;
-
-public class WinRmToolResponse implements Response {
+public class WinRmToolResponse {
     private final String stdout;
     private final String stderr;
     private final int statusCode;
@@ -13,17 +11,14 @@ public class WinRmToolResponse implements Response {
         this.statusCode = statusCode;
     }
 
-    @Override
     public String getStdOut() {
         return stdout;
     }
 
-    @Override
     public String getStdErr() {
         return stderr;
     }
 
-    @Override
     public int getStatusCode() {
         return statusCode;
     }

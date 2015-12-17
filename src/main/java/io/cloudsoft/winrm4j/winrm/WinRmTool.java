@@ -6,22 +6,30 @@ import io.cloudsoft.winrm4j.pywinrm.Response;
 import io.cloudsoft.winrm4j.pywinrm.Session;
 import io.cloudsoft.winrm4j.pywinrm.WinRMFactory;
 
+/**
+ * Tool for executing commands over WinRM.
+ * 
+ * It is the responsibility of the caller to retry on failure. This is strongly recommended,
+ * because we regularly see temporary problems like:
+ * <p>
+ * {@code winrm.exceptions.WinRMTransportError: 500 WinRMTransport. [Errno -1] Unmapped exception: org.python.netty.channel.ConnectTimeoutException: connection timed out: /54.188.91.99:5985}
+ */
 public class WinRmTool {
     private final String address;
     private final String username;
     private final String password;
     private Session session;
 
+    public static WinRmTool connect(String address, String username, String password) {
+        WinRmTool tool = new WinRmTool(address, username, password);
+        return tool;
+    }
+
     private WinRmTool(String address, String username, String password) {
         this.address = address;
         this.username = username;
         this.password = password;
         session = WinRMFactory.INSTANCE.createSession(address, username, password);
-    }
-
-    public static WinRmTool connect(String address, String username, String password) {
-        WinRmTool tool = new WinRmTool(address, username, password);
-        return tool;
     }
 
     public WinRmToolResponse executeScript(List<String> commands) {
