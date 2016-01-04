@@ -30,8 +30,7 @@ public class WinRmTool {
     }
 
     public WinRmToolResponse executeScript(String commands) {
-        // TODO better support for address formats, host:port required
-        Builder builder = WinRmClient.builder("http://" + address + "/wsman");
+        Builder builder = WinRmClient.builder(getEndpointUrl());
         if (username != null && password != null) {
             builder.credentials(username, password);
         }
@@ -45,6 +44,17 @@ public class WinRmTool {
             return new WinRmToolResponse(out.toString(), err.toString(), code);
         } finally {
             client.disconnect();
+        }
+    }
+
+    //TODO support https transport
+    private String getEndpointUrl() {
+        if (address.startsWith("http:") || address.startsWith("https:")) {
+            return address;
+        } else if (address.contains(":")) {
+            return "http://" + address + "/wsman";
+        } else {
+            return "http://" + address + ":5985/wsman";
         }
     }
 
