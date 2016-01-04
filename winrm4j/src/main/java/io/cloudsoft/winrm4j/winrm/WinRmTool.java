@@ -9,11 +9,6 @@ import io.cloudsoft.winrm4j.client.WinRmClient.Builder;
 
 /**
  * Tool for executing commands over WinRM.
- * 
- * It is the responsibility of the caller to retry on failure. This is strongly recommended,
- * because we regularly see temporary problems like:
- * <p>
- * {@code winrm.exceptions.WinRMTransportError: 500 WinRMTransport. [Errno -1] Unmapped exception: org.python.netty.channel.ConnectTimeoutException: connection timed out: /54.188.91.99:5985}
  */
 public class WinRmTool {
     private String address;
@@ -31,7 +26,7 @@ public class WinRmTool {
     }
 
     public WinRmToolResponse executeScript(List<String> commands) {
-        return executeScript(compileScript(commands));
+        return executeScript(joinScript(commands));
     }
 
     public WinRmToolResponse executeScript(String commands) {
@@ -54,7 +49,7 @@ public class WinRmTool {
     }
 
     public WinRmToolResponse executePs(List<String> commands) {
-        return executeScript(compilePs(compileScript(commands)));
+        return executeScript(compilePs(joinPs(commands)));
     }
 
     private String compilePs(String psScript) {
@@ -63,11 +58,32 @@ public class WinRmTool {
         return "powershell -encodedcommand " + arg;
     }
 
-    private String compileScript(List<String> commands) {
+    /**
+     * Batch Script commands appear verbatim in the XML and JAXB will
+     * serialize "\r\n" as "&#xD;\n" in XML which is not recognized
+     * by the Windows service (doesn't unescape &#xD;). Since new lines
+     * in XML are represented as a single "\n" anyway it's fine to
+     * use it as a separator here.
+     * 
+     * TODO cover the case where \r appears in the command?
+     */
+    private String joinScript(List<String> commands) {
+        return join(commands, "\n");
+    }
+
+    /**
+     * PS commands are base64 encoded so we can use the normal new line
+     * Windows delimiter here.
+     */
+    private String joinPs(List<String> commands) {
+        return join(commands, "\r\n");
+    }
+
+    private String join(List<String> commands, String delim) {
         StringBuilder builder = new StringBuilder();
         for (String command : commands) {
             builder.append(command)
-                .append("\r\n");
+                .append(delim);
 
         }
         return builder.toString();
