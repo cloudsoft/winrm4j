@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jaxws:bindings xmlns:jaxws="http://java.sun.com/xml/ns/jaxws"
+  xmlns:jaxb="http://java.sun.com/xml/ns/jaxb" xmlns:xjc="http://java.sun.com/xml/ns/jaxb/xjc"
+  xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  version="2.0">
+
+  <jaxws:package name="io.cloudsoft.winrm4j.client" />
+  <jaxws:enableWrapperStyle>false</jaxws:enableWrapperStyle>
+  <jaxws:enableAsyncMapping>false</jaxws:enableAsyncMapping>
+
+  <jaxws:bindings
+    node="//wsdl:definitions/wsdl:types/xs:schema[@targetNamespace='http://schemas.microsoft.com/wbem/wsman/1/windows/shell']">
+    <jaxb:schemaBindings>
+      <jaxb:package name="io.cloudsoft.winrm4j.client.shell" />
+    </jaxb:schemaBindings>
+  </jaxws:bindings>
+  <jaxws:bindings
+    node="//wsdl:definitions/wsdl:types/xs:schema[@targetNamespace='http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd']">
+    <jaxb:schemaBindings>
+      <jaxb:package name="io.cloudsoft.winrm4j.client.wsman" />
+    </jaxb:schemaBindings>
+  </jaxws:bindings>
+  <jaxws:bindings
+    node="//wsdl:definitions/wsdl:types/xs:schema[@targetNamespace='http://schemas.xmlsoap.org/ws/2004/09/transfer']">
+    <jaxb:schemaBindings>
+      <jaxb:package name="io.cloudsoft.winrm4j.client.transfer" />
+    </jaxb:schemaBindings>
+  </jaxws:bindings>
+
+</jaxws:bindings>
