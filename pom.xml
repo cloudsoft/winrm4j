@@ -61,6 +61,7 @@
     <surefire.version>2.18.1</surefire.version>
     <testng.version>6.8.8</testng.version>
     <guava.version>17.0</guava.version>
+    <cxf.version>3.1.4</cxf.version>
   </properties>
 
   <modules>
@@ -143,12 +144,12 @@
         <plugin>
           <groupId>org.apache.cxf</groupId>
           <artifactId>cxf-java2ws-plugin</artifactId>
-          <version>3.1.4</version>
+          <version>${cxf.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.cxf</groupId>
           <artifactId>cxf-codegen-plugin</artifactId>
-          <version>3.1.4</version>
+          <version>${cxf.version}</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
