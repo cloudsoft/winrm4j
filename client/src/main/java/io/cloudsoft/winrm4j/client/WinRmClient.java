@@ -17,6 +17,12 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import org.apache.cxf.endpoint.Client;
+import org.apache.cxf.frontend.ClientProxy;
+import org.apache.cxf.transport.http.HTTPConduit;
+import org.apache.cxf.ws.addressing.AddressingProperties;
+import org.apache.cxf.ws.addressing.JAXWSAConstants;
+import org.apache.cxf.ws.addressing.WSAddressingFeature;
 import org.w3c.dom.Element;
 
 import io.cloudsoft.winrm4j.client.shell.CommandLine;
@@ -219,16 +225,38 @@ public class WinRmClient {
         if (winrm != null) return winrm;
 
         WinRmService service = new WinRmService();
+//        JaxWsDynamicClientFactory dcf = JaxWsDynamicClientFactory.newInstance();
+//        Client client = dcf.createClient("people.wsdl", classLoader);
         winrm = service.getWinRmPort(
                 // * Adds WS-Addressing headers and uses the submission spec namespace
                 //   http://schemas.xmlsoap.org/ws/2004/08/addressing
                 newMemberSubmissionAddressingFeature());
 
+        // Needed to be async according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
+//        Bus bus = BusFactory.getDefaultBus();
+//        bus.setProperty(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
+
+        Client client = ClientProxy.getClient(winrm);
+
         BindingProvider bp = (BindingProvider)winrm;
+
+        Map<String, Object> requestContext = bp.getRequestContext();
+        AddressingProperties maps = new AddressingProperties("http://schemas.xmlsoap.org/ws/2004/08/addressing");
+        requestContext.put(JAXWSAConstants.CLIENT_ADDRESSING_PROPERTIES, maps);
+
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint.toExternalForm());
         if (username != null && password != null) {
             bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
             bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
+
+            // if NTLM transport
+//            bp.getRequestContext().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
+//            HttpAuthHeader.AUTH_TYPE_NEGOTIATE;
+
+            // Needed to be async according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
+//            bp.getRequestContext().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
+//            Credentials creds = new NTCredentials(username, password, null, null);
+//            bp.getRequestContext().put(Credentials.class.getName(), creds);
         }
 
         Shell shell = new Shell();
@@ -285,9 +313,12 @@ public class WinRmClient {
          */
         try {
             // com.ibm.websphere.wsaddressing.jaxws21.SubmissionAddressingFeature for IBM java (available only in WebSphere?)
-            return (WebServiceFeature)Class.forName("com.sun.xml.internal.ws.developer.MemberSubmissionAddressingFeature")
-                    .getConstructor(boolean.class, boolean.class)
-                    .newInstance(Boolean.TRUE, Boolean.TRUE);
+
+            WSAddressingFeature webServiceFeature = new WSAddressingFeature();
+//            webServiceFeature.setResponses(WSAddressingFeature.AddressingResponses.ANONYMOUS);
+            webServiceFeature.setAddressingRequired(true);
+
+            return webServiceFeature;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
