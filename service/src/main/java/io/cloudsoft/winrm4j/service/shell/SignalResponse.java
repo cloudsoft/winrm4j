@@ -11,7 +11,7 @@ import org.w3c.dom.Element;
 
 
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "SignalResponse", propOrder = {
+@XmlType(name = "SignalResponse", namespace="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", propOrder = {
     "any"
 })
 public class SignalResponse {
