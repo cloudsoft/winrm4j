@@ -30,29 +30,6 @@
   </parent>
 
   <build>
-    <plugins>
-      <plugin>
-        <groupId>org.jvnet.jax-ws-commons</groupId>
-        <artifactId>jaxws-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>generate-wsdl</id>
-            <goals>
-              <goal>wsgen</goal>
-            </goals>
-            <configuration>
-              <sei>io.cloudsoft.winrm4j.service.WinRm</sei>
-              <genWsdl>true</genWsdl>
-              <protocol>Xsoap1.2</protocol>
-              <inlineSchemas>true</inlineSchemas>
-              <extension>true</extension>
-              <keep>true</keep>
-              <xnocompile>true</xnocompile>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
     <pluginManagement>
       <plugins>
         <!--This plugin's configuration is used to store Eclipse m2e settings 
@@ -84,4 +61,72 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <profiles>
+    <profile>
+      <id>jax-ws-ri</id>
+      <activation>
+        <property>
+            <name>!jax-ws-cxf</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jvnet.jax-ws-commons</groupId>
+            <artifactId>jaxws-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>generate-wsdl</id>
+                <goals>
+                  <goal>wsgen</goal>
+                </goals>
+                <configuration>
+                  <sei>io.cloudsoft.winrm4j.service.WinRm</sei>
+                  <genWsdl>true</genWsdl>
+                  <protocol>Xsoap1.2</protocol>
+                  <inlineSchemas>true</inlineSchemas>
+                  <extension>true</extension>
+                  <keep>true</keep>
+                  <xnocompile>true</xnocompile>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>jax-ws-cxf</id>
+      <activation>
+        <property>
+            <name>jax-ws-cxf</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-java2ws-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>generate-wsdl</id>
+                <phase>process-classes</phase>
+                <goals>
+                  <goal>java2ws</goal>
+                </goals>
+                <configuration>
+                  <className>io.cloudsoft.winrm4j.service.WinRm</className>
+                  <genWsdl>true</genWsdl>
+                  <soap12>Xsoap1.2</soap12>
+                  <verbose>true</verbose>
+                  <outputFile>${project.build.directory}/classes/META-INF/wsdl/WinRmService.wsdl</outputFile>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
