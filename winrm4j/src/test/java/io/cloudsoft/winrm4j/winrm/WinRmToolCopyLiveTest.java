@@ -6,8 +6,6 @@ import java.io.ByteArrayInputStream;
 
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableList;
-
 /**
  * Tests execution of file upload.
  */
@@ -32,7 +30,7 @@ public class WinRmToolCopyLiveTest extends AbstractWinRmToolLiveTest {
         String remotePath = "C:\\myfile-"+makeRandomString(8)+".txt";
         copyTo(new ByteArrayInputStream(contents.getBytes()), remotePath);
         
-        WinRmToolResponse response = executeScript(ImmutableList.of("type "+remotePath));
+        WinRmToolResponse response = executeCommand("type "+remotePath);
         String msg = "statusCode="+response.getStatusCode()+"; out="+response.getStdOut()+"; err="+response.getStdErr();
         assertEquals(response.getStatusCode(), 0, msg);
         assertEquals(response.getStdOut().trim(), contents, msg);

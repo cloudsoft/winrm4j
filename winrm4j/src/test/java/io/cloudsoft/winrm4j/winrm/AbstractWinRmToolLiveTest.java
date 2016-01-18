@@ -59,12 +59,12 @@ public class AbstractWinRmToolLiveTest {
 
     protected void assertExecFails(String cmd) {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        assertFailed(cmd, executeScript(cmd), stopwatch);
+        assertFailed(cmd, executeCommand(cmd), stopwatch);
     }
 
     protected void assertExecFails(List<String> cmds) {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        assertFailed(cmds, executeScript(cmds), stopwatch);
+        assertFailed(cmds, executeCommand(cmds), stopwatch);
     }
     
     protected void assertExecPsFails(String cmd) {
@@ -79,7 +79,7 @@ public class AbstractWinRmToolLiveTest {
 
     protected void assertExecSucceeds(String cmd, String stdout, String stderr) {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        assertSucceeded(cmd, executeScript(ImmutableList.of(cmd)), stdout, stderr, stopwatch);
+        assertSucceeded(cmd, executeCommand(ImmutableList.of(cmd)), stdout, stderr, stopwatch);
     }
 
     protected void assertExecCommand(String cmd, String stdout, String stderr, int exitCode) {
@@ -89,7 +89,12 @@ public class AbstractWinRmToolLiveTest {
 
     protected void assertExecSucceeds(List<String> cmds, String stdout, String stderr) {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        assertSucceeded(cmds, executeScript(cmds), stdout, stderr, stopwatch);
+        assertSucceeded(cmds, executeCommand(cmds), stdout, stderr, stopwatch);
+    }
+
+    protected void assertExecPs(String cmd, String stdout, String stderr, int exitCode) {
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        assertWinRmToolResponse(cmd, executePs(cmd), stdout, stderr, stopwatch, exitCode);
     }
 
     protected void assertExecPsSucceeds(String cmd, String stdout, String stderr) {
@@ -126,24 +131,20 @@ public class AbstractWinRmToolLiveTest {
         return response;
     }
     
-    protected WinRmToolResponse executeScript(String script) {
-    	return executeScript(ImmutableList.of(script));
-    }
-    
-    protected WinRmToolResponse executeScript(final List<String> script) {
-    	return callWithRetries(new Callable<WinRmToolResponse>() {
-			@Override public WinRmToolResponse call() throws Exception {
-		        WinRmTool winRmTool = WinRmTool.connect(VM_HOST + ":" + VM_PORT, VM_USER, VM_PASSWORD);
-		        return winRmTool.executeScript(script);
-			}});
-    }
-
     protected WinRmToolResponse executeCommand(final String command) {
         return callWithRetries(new Callable<WinRmToolResponse>() {
             @Override public WinRmToolResponse call() throws Exception {
                 WinRmTool winRmTool = WinRmTool.connect(VM_HOST + ":" + VM_PORT, VM_USER, VM_PASSWORD);
                 return winRmTool.executeCommand(command);
             }});
+    }
+
+    protected WinRmToolResponse executeCommand(final List<String> commands) {
+    	return callWithRetries(new Callable<WinRmToolResponse>() {
+			@Override public WinRmToolResponse call() throws Exception {
+		        WinRmTool winRmTool = WinRmTool.connect(VM_HOST + ":" + VM_PORT, VM_USER, VM_PASSWORD);
+		        return winRmTool.executeCommand(commands);
+			}});
     }
 
     protected WinRmToolResponse executePs(final String command) {

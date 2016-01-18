@@ -40,27 +40,9 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         assertExecSucceeds("echo myline", "myline", "");
     }
     
-    /*
-     * TODO Not supported in PyWinRM.
-     * 
-     * Executing (in python):
-     *     import winrm
-     *     s = winrm.Session('52.12.211.247', auth=('Administrator', 'pa55w0rd'))
-     *     r = s.run_cmd("echo first \r\n echo second")
-     * gives just "first".
-     */
-    @Test(groups={"Live", "WIP"})
-    public void testExecMultiLineScript() throws Exception {
-        assertExecSucceeds("echo first" + "\r\n" + "echo second", "first"+"\r\n"+"second", "");
-    }
-    
-    /*
-     * TODO Not supported in PyWinRM. Under the covers, we just concatenate the commands.
-     * See {@link #testExecMultiLineScript()}.
-     */
-    @Test(groups={"Live", "WIP"})
+    @Test(groups={"Live"})
     public void testExecMultiPartScript() throws Exception {
-        assertExecSucceeds(ImmutableList.of("echo first", "echo second"), "first"+"\r\n"+"second", "");
+        assertExecSucceeds(ImmutableList.of("echo first", "echo second"), "first "+"\r\n"+"second", "");
     }
     
     @Test(groups="Live")
@@ -83,9 +65,15 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     }
 
     /**
-     * Please bear in mind this behavior when executing commands.
+     * Demonstrates that {@code "\r\n"} cannot be used to concatenate commands.
+     * Instead see {@link #testChainCommands()}.
+     * 
+     * This is not "desired" behaviour, but is expected behaviour. 
+     * 
+     * We (Aled) have also seen WinRM fail with exitCode 1, stdout "Hi" and stderr showing
+     * {@code '#xD' is not recognized as an internal or external command, operable program or batch file.}.
      */
-    @Test(groups="Live")
+    @Test(groups={"Live", "WIP"})
     public void testExecRNSplitExit() throws Exception {
         assertExecCommand("echo Hi\r\necho World\r\n", "Hi", "", 0);
         assertExecCommand("echo Hi\r\necho World", "Hi", "", 0);
@@ -94,28 +82,27 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     }
 
     /**
-     * Please bear in mind this behavior when executing commands.
+     * Also see {@link #testExecScriptExit1()}, which shows problems - where it returns zero
+     * instead of non-zero.
      */
     @Test(groups="Live")
     public void testExecCommandExit() throws Exception {
         assertExecCommand("exit /B 0", "", "", 0);
-        assertExecCommand("exit /B 1", "", "", 0);
-        assertExecCommand("exit 1", "", "", 0);
         assertExecCommand("dslfkdsfjskl", "", null, 1);
     }
 
     @Test(groups = "Live")
     public void testExecPowershellExit() throws Exception {
-        assertExecCommand(WinRmTool.compilePs("exit 123"), "", "", 123);
-        assertExecCommand(WinRmTool.compilePs("Write-Host Hi World\r\nexit 123"), "Hi World", "", 123);
+        assertExecPs("exit 123", "", "", 123);
+        assertExecPs("Write-Host Hi World\r\nexit 123", "Hi World", "", 123);
     }
 
     /*
-     * TODO Not supported in PyWinRM.
+     * TODO Was not supported in PyWinRM either.
      * 
      * Executing (in python):
      *     import winrm
-     *     s = winrm.Session('52.12.211.247', auth=('Administrator', 'pa55w0rd'))
+     *     s = winrm.Session('1.2.3.4', auth=('Administrator', 'pa55w0rd'))
      *     r = s.run_cmd("exit /B 1")
      * gives exit code 0.
      */
@@ -124,6 +111,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         // Single commands
         assertExecFails("exit /B 1");
         assertExecFails(ImmutableList.of("exit /B 1"));
+        assertExecFails("exit 1");
     }
 
     @Test(groups="Live")
@@ -210,7 +198,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
      * 
      * Executing (in python):
      *     import winrm
-     *     s = winrm.Session('52.12.211.247', auth=('Administrator', 'pa55w0rd'))
+     *     s = winrm.Session('1.2.3.4', auth=('Administrator', 'pa55w0rd'))
      *     r = s.run_cmd("PowerShell -NonInteractive -NoProfile -Command C:\singleLineExit1.ps1")
      * gives exit code 0.
      */
@@ -263,7 +251,8 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     }
 
     /*
-     * TODO Not supported in PyWinRM - gives exit status 1, rather than the 3 from the batch file.
+     * TODO Was not supported in PyWinRM either - gives exit status 1, rather than the 3 from the 
+     * batch file.
      */
     @Test(groups={"Live", "WIP"})
     public void testExecPsBatchFileExit3() throws Exception {
@@ -328,7 +317,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
      * 
      * Executing (in python):
      *     import winrm
-     *     s = winrm.Session('52.12.211.247', auth=('Administrator', 'pa55w0rd'))
+     *     s = winrm.Session('1.2.3.4', auth=('Administrator', 'pa55w0rd'))
      *     r = s.run_cmd("PowerShell -NonInteractive -NoProfile -Command C:\singleLineExit1.ps1")
      * gives exit code 0.
      */
@@ -342,14 +331,18 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     }
 
     /*
-     * TODO Not supported in PyWinRM - single line .ps1 file with "exit 1" gives an
+     * TODO Was not supported in PyWinRM either - single line .ps1 file with "exit 1" gives an
      * exit code 0 over PyWinRM, but an exit code 1 when executed locally!
      * 
      * Executing (in python):
      *     import winrm
-     *     s = winrm.Session('52.12.211.247', auth=('Administrator', 'pa55w0rd'))
+     *     s = winrm.Session('1.2.3.4', auth=('Administrator', 'pa55w0rd'))
      *     r = s.run_cmd("PowerShell -NonInteractive -NoProfile -Command C:\singleLineGarbage.ps1")
      * gives exit code 0.
+     * 
+     * It gave the following stderr:
+     *     #< CLIXML
+     *     <Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><S S="Error">thisCommandDoesNotExistAEFafiee3d : The term _x000D__x000A_</S><S S="Error">'thisCommandDoesNotExistAEFafiee3d' is not recognized as the name of a cmdlet, _x000D__x000A_</S><S S="Error">function, script file, or operable program. Check the spelling of the name, or _x000D__x000A_</S><S S="Error">if a path was included, verify that the path is correct and try again._x000D__x000A_</S><S S="Error">At C:\myscript-pnsduoir.ps1:1 char:1_x000D__x000A_</S><S S="Error">+ thisCommandDoesNotExistAEFafiee3d_x000D__x000A_</S><S S="Error">+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~_x000D__x000A_</S><S S="Error">    + CategoryInfo          : ObjectNotFound: (thisCommandDoesNotExistAEFafiee _x000D__x000A_</S><S S="Error">   3d:String) [], CommandNotFoundException_x000D__x000A_</S><S S="Error">    + FullyQualifiedErrorId : CommandNotFoundException_x000D__x000A_</S><S S="Error"> _x000D__x000A_</S></Objs>
      */
     @Test(groups={"Live", "WIP"})
     public void testExecPsFilePsSingleLineWithInvalidCommand() throws Exception {
@@ -366,16 +359,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         assertExecPsSucceeds(ImmutableList.of(PS_ERR_ACTION_PREF_EQ_STOP, "Write-Host myline"), "myline", "");
     }
 
-    /*
-     * TODO Not supported in PyWinRM
-     * 
-     * Executing (in python):
-     *     import winrm
-     *     s = winrm.Session('52.12.211.247', auth=('Administrator', 'pa55w0rd'))
-     *     r = s.run_ps("exit 1")
-     * gives exit code 0.
-     */
-    @Test(groups={"Live", "WIP"})
+    @Test(groups="Live")
     public void testExecPsExit1() throws Exception {
         // Single commands
         assertExecPsFails("exit 1");

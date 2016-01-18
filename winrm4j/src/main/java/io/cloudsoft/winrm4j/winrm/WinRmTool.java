@@ -26,21 +26,18 @@ public class WinRmTool {
     }
 
     /**
-     * Execute a list of Windows Native commands as one command.
-     * The method translates the list of commands to a single String command with a <code>"&"</code> delimiter and a terminating one.
-     * @deprecated since 0.2; Use the {@link #executeCommand(String)} instead and transform your commands list explicitly
+     * Executes a Native Windows commands.
+     * 
+     * Current implementation is to concatenate the commands using <code>" & "</code>.
+     * 
+     * Consider instead uploading a script file, and then executing that as a one-line command.
+     * 
+     * @see {@link #executeCommand(String)} for limitations, e.g. about command length.
+     * 
+     * @since 0.2
      */
-    @Deprecated
-    public WinRmToolResponse executeScript(List<String> commands) {
-        return executeCommand(joinCommands(commands));
-    }
-
-    /**
-     * @deprecated please use {@link #executeCommand(String)}
-     */
-    @Deprecated
-    public WinRmToolResponse executeScript(String commands) {
-        return executeCommand(commands);
+    public WinRmToolResponse executeCommand(List<String> commands) {
+    	return executeCommand(joinCommands(commands));
     }
 
     /**
@@ -69,17 +66,6 @@ public class WinRmTool {
         }
     }
 
-    //TODO support https transport
-    private String getEndpointUrl() {
-        if (address.startsWith("http:") || address.startsWith("https:")) {
-            return address;
-        } else if (address.contains(":")) {
-            return "http://" + address + "/wsman";
-        } else {
-            return "http://" + address + ":5985/wsman";
-        }
-    }
-
     /**
      * Executes a Power Shell command.
      * It is creating a new Shell on the destination host each time it is being called.
@@ -91,20 +77,56 @@ public class WinRmTool {
 
     /**
      * Execute a list of Power Shell commands as one command.
-     * The method translates the list of commands to a single String command with a <code>"\r\n"</code> delimiter and a terminating one.
+     * The method translates the list of commands to a single String command with a 
+     * <code>"\r\n"</code> delimiter and a terminating one.
+     * 
+     * Consider instead uploading a script file, and then executing that as a one-line command.
      */
     public WinRmToolResponse executePs(List<String> commands) {
         return executeCommand(compilePs(joinPs(commands)));
     }
 
-    public static String compilePs(String psScript) {
+    private String compilePs(String psScript) {
         byte[] cmd = psScript.getBytes(Charset.forName("UTF-16LE"));
         String arg = javax.xml.bind.DatatypeConverter.printBase64Binary(cmd);
         return "powershell -encodedcommand " + arg;
     }
 
+    /**
+     * Execute a list of Windows Native commands as one command.
+     * The method translates the list of commands to a single String command with a <code>" & "</code> 
+     * delimiter and a terminating one.
+     * 
+     * @deprecated since 0.2; instead use {@link #executeCommand(List)} to remove ambiguity
+     *             between native commands and powershell.
+     */
+    @Deprecated
+    public WinRmToolResponse executeScript(List<String> commands) {
+        return executeCommand(commands);
+    }
+
+    /**
+     * @deprecated since 0.2; instead use {@link #executeCommand(String)} to remove ambiguity
+     *             between native commands and powershell.
+     */
+    @Deprecated
+    public WinRmToolResponse executeScript(String commands) {
+        return executeCommand(commands);
+    }
+
+    //TODO support https transport
+    private String getEndpointUrl() {
+        if (address.startsWith("http:") || address.startsWith("https:")) {
+            return address;
+        } else if (address.contains(":")) {
+            return "http://" + address + "/wsman";
+        } else {
+            return "http://" + address + ":5985/wsman";
+        }
+    }
+
     private String joinCommands(List<String> commands) {
-        return join(commands, " & ");
+        return join(commands, " & ", false);
     }
 
     /**
@@ -112,15 +134,22 @@ public class WinRmTool {
      * Windows delimiter here.
      */
     private String joinPs(List<String> commands) {
-        return join(commands, "\r\n");
+        return join(commands, "\r\n", true);
     }
 
-    private String join(List<String> commands, String delim) {
+    private String join(List<String> commands, String delim, boolean endWithDelim) {
         StringBuilder builder = new StringBuilder();
+        boolean first = true;
         for (String command : commands) {
-            builder.append(command)
-                .append(delim);
-
+        	if (first) {
+        		first = false;
+        	} else {
+                builder.append(delim);
+        	}
+            builder.append(command);
+        }
+        if (endWithDelim) {
+        	builder.append(delim);
         }
         return builder.toString();
     }
