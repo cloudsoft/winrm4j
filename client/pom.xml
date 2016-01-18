@@ -23,7 +23,7 @@
   <parent>
     <groupId>io.cloudsoft.windows</groupId>
     <artifactId>winrm4j-parent</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version> <!-- WINRM4J_VERSION -->
   </parent>
   <artifactId>winrmj4-client</artifactId>
   <name>WinRM Client</name>
