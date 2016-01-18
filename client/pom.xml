@@ -35,6 +35,16 @@
       <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-frontend-jaxws</artifactId>
+      <version>${cxf.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-transports-http</artifactId>
+      <version>${cxf.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -96,31 +106,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.jvnet.jax-ws-commons</groupId>
-        <artifactId>jaxws-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>import-wsdl</id>
-            <goals>
-              <goal>wsimport</goal>
-            </goals>
-            <configuration>
-              <extension>true</extension>
-              <keep>true</keep>
-              <xnocompile>true</xnocompile>
-              <bindingFiles>
-                <bindingFile>bindings.xml</bindingFile>
-              </bindingFiles>
-              <wsdlDirectory>${project.build.directory}/winrm4j-service-wsdl/META-INF/wsdl</wsdlDirectory>
-              <args>
-                <arg>-clientjar</arg>
-                <arg>wsdl.jar</arg>
-              </args>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
@@ -153,4 +138,81 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <profiles>
+    <profile>
+      <id>jax-ws-ri</id>
+      <activation>
+        <property>
+            <name>!jax-ws-cxf</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jvnet.jax-ws-commons</groupId>
+            <artifactId>jaxws-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>import-wsdl</id>
+                <goals>
+                  <goal>wsimport</goal>
+                </goals>
+                <configuration>
+                  <extension>true</extension>
+                  <keep>true</keep>
+                  <xnocompile>true</xnocompile>
+                  <bindingFiles>
+                    <bindingFile>bindings.xml</bindingFile>
+                  </bindingFiles>
+                  <wsdlDirectory>${project.build.directory}/winrm4j-service-wsdl/META-INF/wsdl</wsdlDirectory>
+                  <args>
+                    <arg>-clientjar</arg>
+                    <arg>wsdl.jar</arg>
+                  </args>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>jax-ws-cxf</id>
+      <activation>
+        <property>
+            <name>jax-ws-cxf</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-codegen-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>import-wsdl</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>wsdl2java</goal>
+                </goals>
+                <configuration>
+                  <wsdlOptions>
+                      <wsdlOption>
+                          <wsdl>${project.build.directory}/winrm4j-service-wsdl/META-INF/wsdl/WinRmService.wsdl</wsdl>
+                          <bindingFiles><bindingFile>${basedir}/src/jaxws/bindings.xml</bindingFile></bindingFiles>
+                          <extraargs>
+                              <extraarg>-verbose</extraarg>
+                          </extraargs>
+                      </wsdlOption>
+                  </wsdlOptions>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 </project>

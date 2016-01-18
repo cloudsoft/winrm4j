@@ -11,7 +11,7 @@ import org.w3c.dom.Element;
 
 
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "", propOrder = {
+@XmlType(name = "ResourceCreated", namespace="http://schemas.xmlsoap.org/ws/2004/09/transfer", propOrder = {
     "any"
 })
 public class ResourceCreated {
