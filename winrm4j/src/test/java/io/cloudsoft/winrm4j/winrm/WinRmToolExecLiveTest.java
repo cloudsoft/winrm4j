@@ -75,7 +75,39 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     @Test(groups="Live")
     public void testExecScriptExit0() throws Exception {
         assertExecSucceeds("exit /B 0", "", "");
-        assertExecSucceeds(ImmutableList.of("exit /B 0"), "", "");
+    }
+
+    @Test(groups = "Live")
+    public void testChainCommands() {
+        assertExecCommand("echo Hi & echo World", "Hi \r\nWorld", "", 0);
+    }
+
+    /**
+     * Please bear in mind this behavior when executing commands.
+     */
+    @Test(groups="Live")
+    public void testExecRNSplitExit() throws Exception {
+        assertExecCommand("echo Hi\r\necho World\r\n", "Hi", "", 0);
+        assertExecCommand("echo Hi\r\necho World", "Hi", "", 0);
+        assertExecCommand("echo Hi\necho World\n", "Hi", "", 0);
+        assertExecCommand("echo Hi\necho World", "Hi", "", 0);
+    }
+
+    /**
+     * Please bear in mind this behavior when executing commands.
+     */
+    @Test(groups="Live")
+    public void testExecCommandExit() throws Exception {
+        assertExecCommand("exit /B 0", "", "", 0);
+        assertExecCommand("exit /B 1", "", "", 0);
+        assertExecCommand("exit 1", "", "", 0);
+        assertExecCommand("dslfkdsfjskl", "", null, 1);
+    }
+
+    @Test(groups = "Live")
+    public void testExecPowershellExit() throws Exception {
+        assertExecCommand(WinRmTool.compilePs("exit 123"), "", "", 123);
+        assertExecCommand(WinRmTool.compilePs("Write-Host Hi World\r\nexit 123"), "Hi World", "", 123);
     }
 
     /*
@@ -239,7 +271,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         String scriptPath = "C:\\myscript-"+makeRandomString(8)+".bat";
         copyTo(new ByteArrayInputStream(script.getBytes()), scriptPath);
 
-        WinRmToolResponse response = executePs(ImmutableList.of("& '"+scriptPath+"'"));
+        WinRmToolResponse response = executePs("& '"+scriptPath+"'");
         String msg = "statusCode="+response.getStatusCode()+"; out="+response.getStdOut()+"; err="+response.getStdErr();
         assertEquals(response.getStatusCode(), 3, msg);
     }
@@ -347,7 +379,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     public void testExecPsExit1() throws Exception {
         // Single commands
         assertExecPsFails("exit 1");
-        assertExecPsFails(ImmutableList.of("exit 1"));
+        assertExecPsFails("exit 1");
         
         // Multi-part
         assertExecPsFails(ImmutableList.of(PS_ERR_ACTION_PREF_EQ_STOP, "Write-Host myline", "exit 1"));
@@ -372,11 +404,11 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         WinRmTool winRmTool = connect();
         
         Stopwatch stopwatch = Stopwatch.createStarted();
-        WinRmToolResponse response = executePs(winRmTool, ImmutableList.of("echo myline"));
+        WinRmToolResponse response = executePs(winRmTool, "echo myline");
         assertSucceeded("echo myline", response, "myline", "", stopwatch);
         
         stopwatch = Stopwatch.createStarted();
-        WinRmToolResponse response2 = executePs(winRmTool, ImmutableList.of("echo myline"));
+        WinRmToolResponse response2 = executePs(winRmTool, "echo myline");
         assertSucceeded("echo myline", response2, "myline", "", stopwatch);
     }
 
@@ -397,7 +429,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
                 	String line = "myline" + makeRandomString(8);
                 	Stopwatch stopwatch = Stopwatch.createStarted();
                     try {
-    			        WinRmToolResponse response = executePs(winRmTool, ImmutableList.of("echo " + line));
+    			        WinRmToolResponse response = executePs(winRmTool, "echo " + line);
     			        assertSucceeded("echo " + line, response, line, "", stopwatch);
                         LOG.info("Executed `echo "+line+"` in "+makeTimeStringRounded(stopwatch)+", in thread "+Thread.currentThread()+"; total "+counter.incrementAndGet()+" methods done");
     			        return null;
