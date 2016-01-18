@@ -25,6 +25,9 @@
   <version>0.2.0-SNAPSHOT</version> <!-- WINRM4J_VERSION -->
   <packaging>pom</packaging>
   <name>WinRM Parent</name>
+  <description>
+      A WinRM library for Java
+  </description>
 
   <url>http://github.com/cloudsoft/winrm4j</url>
 
