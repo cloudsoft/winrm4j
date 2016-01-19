@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.xml.ws.BindingProvider;
+import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;

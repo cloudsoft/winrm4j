@@ -198,9 +198,10 @@
         <xs:sequence/>
       </xs:complexType>
     </xs:schema>
-    <xs:schema version="1.0" targetNamespace="http://schemas.xmlsoap.org/ws/2004/09/transfer" xmlns:tns="http://schemas.xmlsoap.org/ws/2004/09/transfer" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:schema version="1.0" targetNamespace="http://schemas.xmlsoap.org/ws/2004/09/transfer" xmlns:tns="http://schemas.xmlsoap.org/ws/2004/09/transfer" xmlns:tnss="http://schemas.microsoft.com/wbem/wsman/1/windows/shell" xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
       <xs:element name="ResourceCreated" nillable="true" type="tns:ResourceCreated"/>
+      <xs:element name="Shell" nillable="true" type="tnss:Shell"/>
 
       <xs:complexType name="ResourceCreated">
         <xs:sequence>
@@ -256,6 +257,7 @@
   </message>
   <message name="CreateResponse">
     <part name="ResourceCreated" element="ns7:ResourceCreated" xmlns:ns7="http://schemas.xmlsoap.org/ws/2004/09/transfer"/>
+    <part name="Shell" element="ns8:Shell" xmlns:ns8="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"/>
   </message>
   <message name="Command">
     <part name="body" element="ns8:CommandLine" xmlns:ns8="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"/>
