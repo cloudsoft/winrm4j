@@ -7,10 +7,13 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.xml.bind.JAXBElement;
+import javax.xml.namespace.QName;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
@@ -18,12 +21,15 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
-import io.cloudsoft.winrm4j.client.wsman.*;
+import org.apache.cxf.binding.soap.SoapHeader;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
+import org.apache.cxf.headers.Header;
+import org.apache.cxf.jaxb.JAXBDataBinding;
 import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.ws.addressing.AddressingProperties;
+import org.apache.cxf.ws.addressing.AttributedURIType;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
 import org.apache.cxf.ws.addressing.WSAddressingFeature;
 import org.w3c.dom.Element;
@@ -146,6 +152,7 @@ public class WinRmClient {
         optSkipCmdShell.setValue("FALSE");
         optSetCmd.getOption().add(optSkipCmdShell);
 
+        setActionToContext((BindingProvider) service, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
         CommandResponse cmdResponse = service.command(cmdLine, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
         String commandId = cmdResponse.getCommandId();
 
@@ -156,10 +163,19 @@ public class WinRmClient {
         }
     }
 
+    // TODO fix CXF to not set a wrong action https://issues.apache.org/jira/browse/CXF-4647
+    private void setActionToContext(BindingProvider bp, String action) {
+        AttributedURIType attrUri = new AttributedURIType();
+        attrUri.setValue(action);
+        ((AddressingProperties)bp.getRequestContext().get("javax.xml.ws.addressing.context")).setAction(attrUri);
+    }
+
     private void releaseCommand(String commandId) {
         Signal signal = new Signal();
         signal.setCommandId(commandId);
         signal.setCode("http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/terminate");
+
+        setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal");
         winrm.signal(signal, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
     }
 
@@ -170,6 +186,8 @@ public class WinRmClient {
             stream.setCommandId(commandId);
             stream.setValue("stdout stderr");
             receive.setDesiredStream(stream);
+
+            setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive");
             ReceiveResponse receiveResponse = winrm.receive(receive, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
             List<StreamType> streams = receiveResponse.getStream();
             for (StreamType s : streams) {
