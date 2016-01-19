@@ -33,52 +33,6 @@ import io.cloudsoft.winrm4j.service.wsman.Signal;
 @BindingType("http://www.w3.org/2003/05/soap/bindings/HTTP/")
 public class WinRm {
 
-    @WebMethod(operationName = "Create", action = "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create")
-    @WebResult(name = "ResourceCreated", targetNamespace = "http://schemas.xmlsoap.org/ws/2004/09/transfer")
-    @Action(input = "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create", output = "http://schemas.xmlsoap.org/ws/2004/09/transfer/CreateResponse")
-    @SOAPBinding(parameterStyle = SOAPBinding.ParameterStyle.BARE)
-    public ResourceCreated create(
-        @WebParam(name = "Shell", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
-        Shell shell,
-        @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        String resourceURI,
-        @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        int maxEnvelopeSize,
-        @WebParam(name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        String operationTimeout,
-        @WebParam(name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        Locale locale,
-        @WebParam(name = "OptionSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        OptionSetType optionSet
-        ) {
-        return null;
-    }
-
-    @WebMethod(operationName = "Command", action="http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command")
-    @WebResult(name="CommandId", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
-    @RequestWrapper(localName="CommandLine", targetNamespace="http://schemas.microsoft.com/wbem/wsman/1/windows/shell", partName = "body")
-    @Action(input = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command", output = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/CommandResponse")
-    public String command(
-        @WebParam(name = "Command", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
-        String command,
-        @WebParam(name = "Arguments", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
-        List<String> arguments,
-        @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        String resourceURI,
-        @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        int maxEnvelopeSize,
-        @WebParam(name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        String operationTimeout,
-        @WebParam(name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        Locale locale,
-        @WebParam(name = "SelectorSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        SelectorSetType selectorSet,
-        @WebParam(name = "OptionSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        OptionSetType optionSet
-        ) {
-        return null;
-    }
-
     @WebMethod(operationName = "Receive", action = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive")
     @WebResult(name="ReceiveResponse", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
     @Action(input = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive", output = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/ReceiveResponse")
@@ -86,27 +40,6 @@ public class WinRm {
     public ReceiveResponse receive(
         @WebParam(name = "Receive", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
         Receive receive,
-        @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        String resourceURI,
-        @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        int maxEnvelopeSize,
-        @WebParam(name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        String operationTimeout,
-        @WebParam(name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        Locale locale,
-        @WebParam(name = "SelectorSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        SelectorSetType selectorSet
-        ) {
-        return null;
-    }
-
-    @WebMethod(operationName = "Signal", action = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal")
-    @WebResult(name = "SignalResponse", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd")
-    @Action(input = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal", output = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/SignalResponse")
-    @SOAPBinding(parameterStyle = SOAPBinding.ParameterStyle.BARE)
-    public SignalResponse signal(
-        @WebParam(name = "Signal", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
-        Signal signal,
         @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         String resourceURI,
         @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
@@ -135,6 +68,73 @@ public class WinRm {
         Locale locale,
         @WebParam(name = "SelectorSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         SelectorSetType selectorSet) {
+    }
+
+    @WebMethod(operationName = "Signal", action = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal")
+    @WebResult(name = "SignalResponse", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd")
+    @Action(input = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal", output = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/SignalResponse")
+    @SOAPBinding(parameterStyle = SOAPBinding.ParameterStyle.BARE)
+    public SignalResponse signal(
+        @WebParam(name = "Signal", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
+        Signal signal,
+        @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        String resourceURI,
+        @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        int maxEnvelopeSize,
+        @WebParam(name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        String operationTimeout,
+        @WebParam(name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        Locale locale,
+        @WebParam(name = "SelectorSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        SelectorSetType selectorSet
+    ) {
+        return null;
+    }
+
+    @WebMethod(operationName = "Command", action="http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command")
+    @WebResult(name="CommandId", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
+    @RequestWrapper(localName="CommandLine", targetNamespace="http://schemas.microsoft.com/wbem/wsman/1/windows/shell", partName = "body")
+    @Action(input = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command", output = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/CommandResponse")
+    public String command(
+        @WebParam(name = "Command", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
+        String command,
+        @WebParam(name = "Arguments", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
+        List<String> arguments,
+        @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        String resourceURI,
+        @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        int maxEnvelopeSize,
+        @WebParam(name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        String operationTimeout,
+        @WebParam(name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        Locale locale,
+        @WebParam(name = "SelectorSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        SelectorSetType selectorSet,
+        @WebParam(name = "OptionSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        OptionSetType optionSet
+    ) {
+        return null;
+    }
+
+    @WebMethod(operationName = "Create", action = "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create")
+    @Action(input = "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create", output = "http://schemas.xmlsoap.org/ws/2004/09/transfer/CreateResponse")
+    @WebResult(name = "ResourceCreated", targetNamespace = "http://schemas.xmlsoap.org/ws/2004/09/transfer", partName = "ResourceCreated")
+    @SOAPBinding(parameterStyle = SOAPBinding.ParameterStyle.BARE)
+    public io.cloudsoft.winrm4j.service.transfer.ResourceCreated create(
+        @WebParam(partName = "Shell", mode = WebParam.Mode.INOUT, name = "Shell", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
+        javax.xml.ws.Holder<io.cloudsoft.winrm4j.service.shell.Shell> shell,
+        @WebParam(partName = "ResourceURI", name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        java.lang.String resourceURI,
+        @WebParam(partName = "MaxEnvelopeSize", name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        int maxEnvelopeSize,
+        @WebParam(partName = "OperationTimeout", name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        java.lang.String operationTimeout,
+        @WebParam(partName = "Locale", name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        Locale locale,
+        @WebParam(partName = "OptionSet", name = "OptionSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        OptionSetType optionSet
+    ) {
+        return null;
     }
 
 }

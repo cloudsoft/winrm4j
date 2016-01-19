@@ -17,8 +17,10 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import io.cloudsoft.winrm4j.client.wsman.*;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
+import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.ws.addressing.AddressingProperties;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
@@ -35,13 +37,6 @@ import io.cloudsoft.winrm4j.client.shell.ReceiveResponse;
 import io.cloudsoft.winrm4j.client.shell.Shell;
 import io.cloudsoft.winrm4j.client.shell.StreamType;
 import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
-import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
-import io.cloudsoft.winrm4j.client.wsman.Locale;
-import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
-import io.cloudsoft.winrm4j.client.wsman.OptionType;
-import io.cloudsoft.winrm4j.client.wsman.SelectorSetType;
-import io.cloudsoft.winrm4j.client.wsman.SelectorType;
-import io.cloudsoft.winrm4j.client.wsman.Signal;
 
 /**
  * TODO confirm if parallel commands can be called in parallel in one shell (probably not)!
@@ -237,6 +232,10 @@ public class WinRmClient {
 //        bus.setProperty(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
 
         Client client = ClientProxy.getClient(winrm);
+        ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
+        si.setProperty("soap.force.doclit.bare", true);
+        si.setProperty("soap.no.validate.parts", true);
+
 
         BindingProvider bp = (BindingProvider)winrm;
 
@@ -287,9 +286,12 @@ public class WinRmClient {
         optCodepage.setName("WINRS_CODEPAGE");
         optCodepage.setValue("437");
         optSetCreate.getOption().add(optCodepage);
-        
-        ResourceCreated resourceCreated = winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
-        shellId = getShellId(resourceCreated);
+
+        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+        setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create");
+        Holder<Shell> holder = new Holder<>(shell);
+        ResourceCreated resourceCreated = winrm.create(holder, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
+        shellId = holder.value.getShellId();
 
         shellSelector = new SelectorSetType();
         SelectorType sel = new SelectorType();
@@ -324,26 +326,9 @@ public class WinRmClient {
         }
     }
 
-    // TODO use typed output
-    private static String getShellId(ResourceCreated resourceCreated) {
-        XPath xpath = XPathFactory.newInstance().newXPath();
-        for (Element el : resourceCreated.getAny()) {
-            String shellId;
-            try {
-                shellId = xpath.evaluate("//*[local-name()='Selector' and @Name='ShellId']", el);
-            } catch (XPathExpressionException e) {
-                throw new IllegalStateException(e);
-            }
-            if (shellId != null && !shellId.isEmpty()) {
-                return shellId;
-            }
-        }
-        throw new IllegalStateException("Shell ID not fount in " + resourceCreated);
-    }
-
     public void disconnect() {
-        if (winrm != null) {
-            winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+        if (winrm != null && shellSelector != null) {
+            winrm.delete(new Delete(), RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
         }
     }
 

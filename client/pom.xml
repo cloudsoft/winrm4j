@@ -82,30 +82,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>unpack</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>unpack</goal>
-            </goals>
-            <configuration>
-              <artifactItems>
-                <artifactItem>
-                  <groupId>io.cloudsoft.windows</groupId>
-                  <artifactId>winrm4j-service</artifactId>
-                  <version>${project.version}</version>
-                  <outputDirectory>${project.build.directory}/winrm4j-service-wsdl</outputDirectory>
-                  <includes>META-INF/wsdl/**</includes>
-                </artifactItem>
-              </artifactItems>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
@@ -138,13 +114,12 @@
       </plugins>
     </pluginManagement>
   </build>
-
   <profiles>
     <profile>
       <id>jax-ws-ri</id>
       <activation>
         <property>
-            <name>!jax-ws-cxf</name>
+          <name>jax-ws-rixx</name>
         </property>
       </activation>
       <build>
@@ -180,8 +155,9 @@
     <profile>
       <id>jax-ws-cxf</id>
       <activation>
+        <!--<activeByDefault>true</activeByDefault>-->
         <property>
-            <name>jax-ws-cxf</name>
+          <name>!jax-ws-ri</name>
         </property>
       </activation>
       <build>
@@ -189,22 +165,24 @@
           <plugin>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-codegen-plugin</artifactId>
+            <version>${cxf.version}</version>
             <executions>
               <execution>
-                <id>import-wsdl</id>
+                <id>generate-sources</id>
                 <phase>generate-sources</phase>
                 <goals>
                   <goal>wsdl2java</goal>
                 </goals>
                 <configuration>
+                  <sourceRoot>${project.build.directory}/generated-sources/cxf</sourceRoot>
                   <wsdlOptions>
-                      <wsdlOption>
-                          <wsdl>${project.build.directory}/winrm4j-service-wsdl/META-INF/wsdl/WinRmService.wsdl</wsdl>
-                          <bindingFiles><bindingFile>${basedir}/src/jaxws/bindings.xml</bindingFile></bindingFiles>
-                          <extraargs>
-                              <extraarg>-verbose</extraarg>
-                          </extraargs>
-                      </wsdlOption>
+                    <wsdlOption>
+                      <wsdl>${basedir}/../service/target/classes/META-INF/wsdl/WinRmService.wsdl</wsdl>
+                      <bindingFiles><bindingFile>${basedir}/src/jaxws/bindings.xml</bindingFile></bindingFiles>
+                      <extraargs>
+                        <extraarg>-verbose</extraarg>
+                      </extraargs>
+                    </wsdlOption>
                   </wsdlOptions>
                 </configuration>
               </execution>
@@ -214,5 +192,4 @@
       </build>
     </profile>
   </profiles>
-
 </project>
