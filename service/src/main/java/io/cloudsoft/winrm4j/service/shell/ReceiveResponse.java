@@ -13,7 +13,7 @@ import javax.xml.bind.annotation.XmlType;
 
 
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "ReceiveResponse", propOrder = {
+@XmlType(name = "ReceiveResponse", namespace="http://schemas.microsoft.com/wbem/wsman/1/windows/shell", propOrder = {
     "stream",
     "commandState"
 })
