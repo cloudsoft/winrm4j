@@ -37,7 +37,7 @@
   <dependencies>
     <dependency>
       <groupId>io.cloudsoft.windows</groupId>
-      <artifactId>winrmj4-client</artifactId>
+      <artifactId>winrm4j-client</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
