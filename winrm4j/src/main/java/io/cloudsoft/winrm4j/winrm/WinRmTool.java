@@ -6,6 +6,7 @@ import java.util.List;
 
 import io.cloudsoft.winrm4j.client.WinRmClient;
 import io.cloudsoft.winrm4j.client.WinRmClient.Builder;
+import org.apache.http.client.config.AuthSchemes;
 
 /**
  * Tool for executing commands over WinRM.
@@ -14,15 +15,21 @@ public class WinRmTool {
     private String address;
     private String username;
     private String password;
+    private String authenticationScheme;
 
     public static WinRmTool connect(String address, String username, String password) {
-        return new WinRmTool(address, username, password);
+        return new WinRmTool(address, username, password, AuthSchemes.BASIC);
     }
 
-    private WinRmTool(String address, String username, String password) {
+    public static WinRmTool connect(String address, String username, String password, String authenticationScheme) {
+        return new WinRmTool(address, username, password, authenticationScheme);
+    }
+
+    private WinRmTool(String address, String username, String password, String authenticationScheme) {
         this.address = address;
         this.username = username;
         this.password = password;
+        this.authenticationScheme = authenticationScheme;
     }
 
     /**
@@ -49,7 +56,7 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executeCommand(String command) {
-        Builder builder = WinRmClient.builder(getEndpointUrl());
+        Builder builder = WinRmClient.builder(getEndpointUrl(), authenticationScheme);
         if (username != null && password != null) {
             builder.credentials(username, password);
         }

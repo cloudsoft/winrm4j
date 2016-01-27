@@ -7,13 +7,10 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.xml.bind.JAXBElement;
-import javax.xml.namespace.QName;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
@@ -21,17 +18,21 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
-import org.apache.cxf.binding.soap.SoapHeader;
+import org.apache.cxf.Bus;
+import org.apache.cxf.BusFactory;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
-import org.apache.cxf.headers.Header;
-import org.apache.cxf.jaxb.JAXBDataBinding;
 import org.apache.cxf.service.model.ServiceInfo;
-import org.apache.cxf.transport.http.HTTPConduit;
+import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
+import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduitFactory;
+import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.addressing.AddressingProperties;
 import org.apache.cxf.ws.addressing.AttributedURIType;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
 import org.apache.cxf.ws.addressing.WSAddressingFeature;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.NTCredentials;
+import org.apache.http.client.config.AuthSchemes;
 import org.w3c.dom.Element;
 
 import io.cloudsoft.winrm4j.client.shell.CommandLine;
@@ -53,6 +54,7 @@ public class WinRmClient {
     private static final int MAX_ENVELOPER_SIZE = 153600;
     private static final String RESOURCE_URI = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd";
 
+    private final String authenticationScheme;
     private URL endpoint;
     private String username;
     private String password;
@@ -66,22 +68,30 @@ public class WinRmClient {
     private SelectorSetType shellSelector;
 
     public static Builder builder(URL endpoint) {
-        return new Builder(endpoint);
+        return new Builder(endpoint, AuthSchemes.BASIC);
     }
 
     public static Builder builder(String endpoint) {
-        return new Builder(endpoint);
+        return new Builder(endpoint, AuthSchemes.BASIC);
+    }
+
+    public static Builder builder(URL endpoint, String authenticationScheme) {
+        return new Builder(endpoint, authenticationScheme);
+    }
+
+    public static Builder builder(String endpoint, String authenticationScheme) {
+        return new Builder(endpoint, authenticationScheme);
     }
 
     public static class Builder {
         private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
         private static final int DEFAULT_OPERATION_TIMEOUT = 60000;
         private WinRmClient client;
-        public Builder(URL endpoint) {
-            client = new WinRmClient(endpoint);
+        public Builder(URL endpoint, String authenticationScheme) {
+            client = new WinRmClient(endpoint, authenticationScheme);
         }
-        public Builder(String endpoint) {
-            this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")));
+        public Builder(String endpoint, String authenticationScheme) {
+            this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")), authenticationScheme);
         }
         public Builder credentials(String username, String password) {
             client.username = checkNotNull(username, "username");
@@ -132,8 +142,17 @@ public class WinRmClient {
         }
     }
 
-    private WinRmClient(URL endpoint) {
+    private WinRmClient(URL endpoint, String authenticationScheme) {
+        this.authenticationScheme = authenticationScheme;
         this.endpoint = endpoint;
+
+        // Needed to be async client according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
+        // TODO consider using async client for Basic authentication
+        if (authenticationScheme.equals(AuthSchemes.NTLM)) {
+            Bus bus = BusFactory.getDefaultBus();
+            bus.getProperties().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
+            bus.getProperties().put(AsyncHTTPConduitFactory.USE_POLICY, "ALWAYS");
+        }
     }
 
     public int command(String cmd, Writer out, Writer err) {
@@ -255,7 +274,6 @@ public class WinRmClient {
         si.setProperty("soap.force.doclit.bare", true);
         si.setProperty("soap.no.validate.parts", true);
 
-
         BindingProvider bp = (BindingProvider)winrm;
 
         Map<String, Object> requestContext = bp.getRequestContext();
@@ -264,18 +282,26 @@ public class WinRmClient {
 
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint.toExternalForm());
         if (username != null && password != null) {
-            bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
-            bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
+            switch(authenticationScheme) {
+                case AuthSchemes.BASIC:
+                    bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
+                    bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
+                case AuthSchemes.NTLM:
+                    Credentials creds = new NTCredentials(username, password, null, null);
+                    bp.getRequestContext().put(Credentials.class.getName(), creds);
+                    bp.getRequestContext().put("http.autoredirect", true);
+                    HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+    //            httpClientPolicy.setConnectionTimeout(36000);
+                    httpClientPolicy.setAllowChunking(false);
 
-            // if NTLM transport
-//            bp.getRequestContext().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
-//            HttpAuthHeader.AUTH_TYPE_NEGOTIATE;
-
-            // Needed to be async according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
-//            bp.getRequestContext().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
-//            Credentials creds = new NTCredentials(username, password, null, null);
-//            bp.getRequestContext().put(Credentials.class.getName(), creds);
-        }
+                    AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+                    httpClient.setClient(httpClientPolicy);
+                    httpClient.getClient().setAutoRedirect(true);
+                    break;
+                default:
+                    throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
+            }
+         }
 
         Shell shell = new Shell();
         shell.getInputStreams().add("stdin");
