@@ -18,10 +18,14 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.endpoint.Client;
+import org.apache.cxf.endpoint.ClientImpl;
+import org.apache.cxf.endpoint.Endpoint;
 import org.apache.cxf.frontend.ClientProxy;
+import org.apache.cxf.jaxws.JaxWsClientFactoryBean;
 import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduitFactory;
@@ -30,9 +34,17 @@ import org.apache.cxf.ws.addressing.AddressingProperties;
 import org.apache.cxf.ws.addressing.AttributedURIType;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
 import org.apache.cxf.ws.addressing.WSAddressingFeature;
+import org.apache.http.auth.AuthSchemeProvider;
+import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.AuthSchemes;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.impl.auth.BasicSchemeFactory;
+import org.apache.http.impl.auth.KerberosSchemeFactory;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.w3c.dom.Element;
 
 import io.cloudsoft.winrm4j.client.shell.CommandLine;
@@ -254,6 +266,14 @@ public class WinRmClient {
         }
     }
 
+    private class JaxWsClientWithNegotiateFactoryBean extends JaxWsClientFactoryBean {
+        @Override
+        protected Client createClient(Endpoint ep) {
+            return new ClientImpl(getBus(), ep, getConduitSelector());
+        }
+
+    }
+
     private synchronized WinRm createService() {
         if (winrm != null) return winrm;
 
@@ -281,27 +301,48 @@ public class WinRmClient {
         requestContext.put(JAXWSAConstants.CLIENT_ADDRESSING_PROPERTIES, maps);
 
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint.toExternalForm());
-        if (username != null && password != null) {
-            switch(authenticationScheme) {
-                case AuthSchemes.BASIC:
-                    bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
-                    bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
-                case AuthSchemes.NTLM:
-                    Credentials creds = new NTCredentials(username, password, null, null);
-                    bp.getRequestContext().put(Credentials.class.getName(), creds);
-                    bp.getRequestContext().put("http.autoredirect", true);
-                    HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
-    //            httpClientPolicy.setConnectionTimeout(36000);
-                    httpClientPolicy.setAllowChunking(false);
 
-                    AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
-                    httpClient.setClient(httpClientPolicy);
-                    httpClient.getClient().setAutoRedirect(true);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
-            }
-         }
+        switch(authenticationScheme) {
+            case AuthSchemes.BASIC:
+                bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
+                bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
+            case AuthSchemes.NTLM:
+                Credentials creds = new NTCredentials(username, password, null, null);
+
+                CredentialsProvider credsProvider = new BasicCredentialsProvider();
+                credsProvider.setCredentials(
+                        new AuthScope(AuthScope.ANY_HOST, 5985),
+                        creds);
+
+                Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+                        .register(AuthSchemes.BASIC, new BasicSchemeFactory())
+                        // Uncomment to support Negotiate(SPNEGO)+Kerberos, only one of the next two items allowed
+                        // .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())
+                        .register(AuthSchemes.SPNEGO, new SpNegoNTLMSchemeFactory())
+                        .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())//
+                        .build();
+
+//                CloseableHttpClient httpclient = HttpClients.custom()
+//                        .setDefaultCredentialsProvider(credsProvider)
+//                        .setDefaultAuthSchemeRegistry(authSchemeRegistry)
+//                        .build();
+
+                bp.getRequestContext().put(Credentials.class.getName(), creds);
+                bp.getRequestContext().put("http.autoredirect", true);
+
+                bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
+                HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+//            httpClientPolicy.setConnectionTimeout(36000);
+                httpClientPolicy.setAllowChunking(false);
+
+                AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+
+                httpClient.setClient(httpClientPolicy);
+                httpClient.getClient().setAutoRedirect(true);
+                break;
+            default:
+                throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
+        }
 
         Shell shell = new Shell();
         shell.getInputStreams().add("stdin");
