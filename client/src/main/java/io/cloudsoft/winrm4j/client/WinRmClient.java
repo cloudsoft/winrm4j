@@ -5,12 +5,16 @@ import java.io.Writer;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
@@ -21,6 +25,7 @@ import javax.xml.xpath.XPathFactory;
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
+import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.endpoint.ClientImpl;
 import org.apache.cxf.endpoint.Endpoint;
@@ -34,6 +39,7 @@ import org.apache.cxf.ws.addressing.AddressingProperties;
 import org.apache.cxf.ws.addressing.AttributedURIType;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
 import org.apache.cxf.ws.addressing.WSAddressingFeature;
+import org.apache.cxf.ws.addressing.VersionTransformer;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
@@ -79,6 +85,8 @@ public class WinRmClient {
     private String shellId;
     private SelectorSetType shellSelector;
 
+    private boolean disableCertificatesChecks;
+
     public static Builder builder(URL endpoint) {
         return new Builder(endpoint, AuthSchemes.BASIC);
     }
@@ -120,6 +128,10 @@ public class WinRmClient {
             client.operationTimeout = toDuration(operationTimeout);
             return this;
         }
+        public Builder setDisableCertificatesChecks(boolean disableCertificatesChecks) {
+            client.disableCertificatesChecks = disableCertificatesChecks;
+            return this;
+        }
         public Builder workingDirectory(String workingDirectory) {
             client.workingDirectory = checkNotNull(workingDirectory, "workingDirectory");
             return this;
@@ -155,12 +167,12 @@ public class WinRmClient {
     }
 
     private WinRmClient(URL endpoint, String authenticationScheme) {
-        this.authenticationScheme = authenticationScheme;
+        this.authenticationScheme = authenticationScheme != null ? authenticationScheme : AuthSchemes.BASIC;
         this.endpoint = endpoint;
 
         // Needed to be async client according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
         // TODO consider using async client for Basic authentication
-        if (authenticationScheme.equals(AuthSchemes.NTLM)) {
+        if (this.authenticationScheme.equals(AuthSchemes.NTLM)) {
             Bus bus = BusFactory.getDefaultBus();
             bus.getProperties().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
             bus.getProperties().put(AsyncHTTPConduitFactory.USE_POLICY, "ALWAYS");
@@ -183,6 +195,7 @@ public class WinRmClient {
         optSkipCmdShell.setValue("FALSE");
         optSetCmd.getOption().add(optSkipCmdShell);
 
+        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
         setActionToContext((BindingProvider) service, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
         CommandResponse cmdResponse = service.command(cmdLine, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
         String commandId = cmdResponse.getCommandId();
@@ -206,6 +219,7 @@ public class WinRmClient {
         signal.setCommandId(commandId);
         signal.setCode("http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/terminate");
 
+        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
         setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal");
         winrm.signal(signal, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
     }
@@ -218,6 +232,7 @@ public class WinRmClient {
             stream.setValue("stdout stderr");
             receive.setDesiredStream(stream);
 
+            //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
             setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive");
             ReceiveResponse receiveResponse = winrm.receive(receive, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
             List<StreamType> streams = receiveResponse.getStream();
@@ -297,7 +312,7 @@ public class WinRmClient {
         BindingProvider bp = (BindingProvider)winrm;
 
         Map<String, Object> requestContext = bp.getRequestContext();
-        AddressingProperties maps = new AddressingProperties("http://schemas.xmlsoap.org/ws/2004/08/addressing");
+        AddressingProperties maps = new AddressingProperties(VersionTransformer.Names200408.WSA_NAMESPACE_NAME);
         requestContext.put(JAXWSAConstants.CLIENT_ADDRESSING_PROPERTIES, maps);
 
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint.toExternalForm());
@@ -311,7 +326,7 @@ public class WinRmClient {
 
                 CredentialsProvider credsProvider = new BasicCredentialsProvider();
                 credsProvider.setCredentials(
-                        new AuthScope(AuthScope.ANY_HOST, 5985),
+                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT),
                         creds);
 
                 Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
@@ -322,11 +337,6 @@ public class WinRmClient {
                         .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())//
                         .build();
 
-//                CloseableHttpClient httpclient = HttpClients.custom()
-//                        .setDefaultCredentialsProvider(credsProvider)
-//                        .setDefaultAuthSchemeRegistry(authSchemeRegistry)
-//                        .build();
-
                 bp.getRequestContext().put(Credentials.class.getName(), creds);
                 bp.getRequestContext().put("http.autoredirect", true);
 
@@ -336,6 +346,28 @@ public class WinRmClient {
                 httpClientPolicy.setAllowChunking(false);
 
                 AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+
+                TLSClientParameters tlsClientParameters = new TLSClientParameters();
+                if (disableCertificatesChecks) {
+                    tlsClientParameters.setDisableCNCheck(true);
+                    tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                        }
+
+                        @Override
+                        public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                        }
+
+                        @Override
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[0];
+                        }
+                    }});
+                }
+                httpClient.setTlsClientParameters(tlsClientParameters);
 
                 httpClient.setClient(httpClientPolicy);
                 httpClient.getClient().setAutoRedirect(true);

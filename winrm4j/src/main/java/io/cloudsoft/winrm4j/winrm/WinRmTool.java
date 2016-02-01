@@ -3,29 +3,107 @@ package io.cloudsoft.winrm4j.winrm;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import io.cloudsoft.winrm4j.client.WinRmClient;
-import io.cloudsoft.winrm4j.client.WinRmClient.Builder;
 import org.apache.http.client.config.AuthSchemes;
 
 /**
  * Tool for executing commands over WinRM.
  */
 public class WinRmTool {
+    private static final Logger LOG = Logger.getLogger(WinRmTool.class.getName());
+
+    public static final int DEFAULT_WINRM_PORT = 5985;
+    public static final int DEFAULT_WINRM_HTTPS_PORT = 5986;
+
     private String address;
     private String username;
     private String password;
     private String authenticationScheme;
+    private boolean disableCertificatesChecks;
 
+    public static class Builder {
+        private String authenticationScheme = AuthSchemes.BASIC;
+        private Boolean useHttps;
+        private Integer port = null;
+        private boolean disableCertificatesChecks = false;
+        private String address;
+        private String username;
+        private String password;
+
+        private static final Pattern matchPort = Pattern.compile(".*:\\d+$");
+
+        public static Builder builder(String address, String username, String password) {
+            return new Builder(address, username, password);
+        }
+
+        private Builder(String address, String username, String password) {
+            this.address = address;
+            this.username = username;
+            this.password = password;
+        }
+
+        public Builder setAuthenticationScheme(String authenticationScheme) {
+            this.authenticationScheme = authenticationScheme;
+            return this;
+        }
+
+        public Builder disableCertificatesChecks(boolean disableCertificatesChecks) {
+            this.disableCertificatesChecks = disableCertificatesChecks;
+            return this;
+        }
+
+        public Builder useHttps(boolean useHttps) {
+            this.useHttps = useHttps;
+            return this;
+        }
+
+        public Builder port(int port) {
+            this.port = port;
+            return this;
+        }
+
+        public WinRmTool build() {
+            return new WinRmTool(getEndpointUrl(address, useHttps, port), username, password, authenticationScheme, disableCertificatesChecks);
+        }
+
+        // TODO remove arguments when method WinRmTool.connect() is removed
+        private static String getEndpointUrl(String address, Boolean useHttps, Integer port) {
+            if (port == null && useHttps == null) {
+                throw new IllegalArgumentException("No port number or protocol is set");
+            }
+            port = port != null ? port : (useHttps ? DEFAULT_WINRM_HTTPS_PORT : DEFAULT_WINRM_PORT);
+            if (address.startsWith("http:") || address.startsWith("https:")) {
+                if (useHttps != null) {
+                    if (useHttps && address.startsWith("http:"))
+                        throw new IllegalArgumentException("Invalid setting useHttps and address starting http://");
+                    if (!useHttps && address.startsWith("https:"))
+                        throw new IllegalArgumentException("Invalid setting useHttp and address starting https://");
+                }
+                return address;
+            } else {
+                if (matchPort.matcher(address).matches()) {
+                    return (useHttps ? "https" : "http") + "://" + address + "/wsman";
+                } else {
+                    if (useHttps) {
+                        return "https://" + address + ":" + port + "/wsman";
+                    } else {
+                        return "http://" + address + ":" + port + "/wsman";
+                    }
+                }
+            }
+        }
+    }
+
+    @Deprecated
     public static WinRmTool connect(String address, String username, String password) {
-        return new WinRmTool(address, username, password, AuthSchemes.BASIC);
+        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), username, password, AuthSchemes.BASIC, false);
     }
 
-    public static WinRmTool connect(String address, String username, String password, String authenticationScheme) {
-        return new WinRmTool(address, username, password, authenticationScheme);
-    }
-
-    private WinRmTool(String address, String username, String password, String authenticationScheme) {
+    private WinRmTool(String address, String username, String password, String authenticationScheme, boolean disableCertificatesChecks) {
+        this.disableCertificatesChecks = disableCertificatesChecks;
         this.address = address;
         this.username = username;
         this.password = password;
@@ -56,9 +134,13 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executeCommand(String command) {
-        Builder builder = WinRmClient.builder(getEndpointUrl(), authenticationScheme);
+        WinRmClient.Builder builder = WinRmClient.builder(address, authenticationScheme);
         if (username != null && password != null) {
             builder.credentials(username, password);
+        }
+        if (disableCertificatesChecks) {
+            LOG.info("Disabled check for https connections " + this);
+            builder.setDisableCertificatesChecks(disableCertificatesChecks);
         }
         WinRmClient client = builder.build();
 
@@ -119,17 +201,6 @@ public class WinRmTool {
     @Deprecated
     public WinRmToolResponse executeScript(String commands) {
         return executeCommand(commands);
-    }
-
-    //TODO support https transport
-    private String getEndpointUrl() {
-        if (address.startsWith("http:") || address.startsWith("https:")) {
-            return address;
-        } else if (address.contains(":")) {
-            return "http://" + address + "/wsman";
-        } else {
-            return "http://" + address + ":5985/wsman";
-        }
     }
 
     private String joinCommands(List<String> commands) {
