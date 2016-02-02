@@ -49,6 +49,12 @@
       <artifactId>cxf-rt-transports-http</artifactId>
       <version>${cxf.version}</version>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>winrm4j-service</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -82,6 +88,26 @@
                     <directory>${project.build.directory}/winrm4j-service-wsdl</directory>
                 </resource>
               </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>2.10</version>
+        <executions>
+          <execution>
+            <id>unpack</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>unpack-dependencies</goal>
+            </goals>
+            <configuration>
+              <includeGroupIds>${project.groupId}</includeGroupIds>
+              <includeArtifactIds>winrm4j-service</includeArtifactIds>
+              <includes>wsdl/WinRmService.wsdl</includes>
+              <outputDirectory>${project.build.directory}/classes</outputDirectory>
             </configuration>
           </execution>
         </executions>
@@ -123,7 +149,7 @@
       <id>jax-ws-ri</id>
       <activation>
         <property>
-          <name>jax-ws-rixx</name>
+          <name>jax-ws-ri</name>
         </property>
       </activation>
       <build>
@@ -144,10 +170,10 @@
                   <bindingFiles>
                     <bindingFile>bindings.xml</bindingFile>
                   </bindingFiles>
-                  <wsdlDirectory>${project.build.directory}/winrm4j-service-wsdl/META-INF/wsdl</wsdlDirectory>
+                  <wsdlDirectory>${basedir}/../service/target/classes/wsdl</wsdlDirectory>
                   <args>
                     <arg>-clientjar</arg>
-                    <arg>wsdl.jar</arg>
+                    <arg>${basedir}/wsdl.jar</arg>
                   </args>
                 </configuration>
               </execution>
@@ -159,7 +185,6 @@
     <profile>
       <id>jax-ws-cxf</id>
       <activation>
-        <!--<activeByDefault>true</activeByDefault>-->
         <property>
           <name>!jax-ws-ri</name>
         </property>
@@ -181,7 +206,10 @@
                   <sourceRoot>${project.build.directory}/generated-sources/cxf</sourceRoot>
                   <wsdlOptions>
                     <wsdlOption>
-                      <wsdl>${basedir}/../service/target/classes/META-INF/wsdl/WinRmService.wsdl</wsdl>
+                      <!--Use this wsdl file to generate classes directly from there-->
+                      <!--<wsdl>${basedir}/src/main/resources/ref_wsdl/WinRmService.wsdl</wsdl>-->
+                      <wsdl>${basedir}/../service/target/classes/wsdl/WinRmService.wsdl</wsdl>
+                      <wsdlLocation>classpath:wsdl/WinRmService.wsdl</wsdlLocation>
                       <bindingFiles><bindingFile>${basedir}/src/jaxws/bindings.xml</bindingFile></bindingFiles>
                       <extraargs>
                         <extraarg>-verbose</extraarg>

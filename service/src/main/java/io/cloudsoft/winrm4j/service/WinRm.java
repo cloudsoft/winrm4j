@@ -13,9 +13,7 @@ import javax.xml.ws.RequestWrapper;
 
 import io.cloudsoft.winrm4j.service.shell.Receive;
 import io.cloudsoft.winrm4j.service.shell.ReceiveResponse;
-import io.cloudsoft.winrm4j.service.shell.Shell;
 import io.cloudsoft.winrm4j.service.shell.SignalResponse;
-import io.cloudsoft.winrm4j.service.transfer.ResourceCreated;
 import io.cloudsoft.winrm4j.service.wsman.Locale;
 import io.cloudsoft.winrm4j.service.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.service.wsman.SelectorSetType;
@@ -50,7 +48,7 @@ public class WinRm {
         Locale locale,
         @WebParam(name = "SelectorSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         SelectorSetType selectorSet
-        ) {
+    ) {
         return null;
     }
 
@@ -121,17 +119,17 @@ public class WinRm {
     @WebResult(name = "ResourceCreated", targetNamespace = "http://schemas.xmlsoap.org/ws/2004/09/transfer", partName = "ResourceCreated")
     @SOAPBinding(parameterStyle = SOAPBinding.ParameterStyle.BARE)
     public io.cloudsoft.winrm4j.service.transfer.ResourceCreated create(
-        @WebParam(partName = "Shell", mode = WebParam.Mode.INOUT, name = "Shell", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
+        @WebParam(name = "Shell", mode = WebParam.Mode.INOUT, targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
         javax.xml.ws.Holder<io.cloudsoft.winrm4j.service.shell.Shell> shell,
-        @WebParam(partName = "ResourceURI", name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        java.lang.String resourceURI,
-        @WebParam(partName = "MaxEnvelopeSize", name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        String resourceURI,
+        @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         int maxEnvelopeSize,
-        @WebParam(partName = "OperationTimeout", name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        java.lang.String operationTimeout,
-        @WebParam(partName = "Locale", name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        @WebParam(name = "OperationTimeout", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        String operationTimeout,
+        @WebParam(name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         Locale locale,
-        @WebParam(partName = "OptionSet", name = "OptionSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        @WebParam(name = "OptionSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         OptionSetType optionSet
     ) {
         return null;

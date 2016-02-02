@@ -53,7 +53,7 @@ public class AbstractWinRmToolLiveTest {
             builder.setAuthenticationScheme(AuthSchemes.NTLM);
             builder.port(VM_PORT);
             builder.useHttps(true);
-            builder.disableCertificatesChecks(true);
+            builder.disableCertificateChecks(true);
             return builder.build();
         }};
 

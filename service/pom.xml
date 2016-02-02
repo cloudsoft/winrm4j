@@ -128,7 +128,7 @@
                   <genWsdl>true</genWsdl>
                   <soap12>true</soap12>
                   <verbose>true</verbose>
-                  <outputFile>${project.build.directory}/classes/META-INF/wsdl/WinRmService.wsdl</outputFile>
+                  <outputFile>${project.build.directory}/classes/wsdl/WinRmService.wsdl</outputFile>
                 </configuration>
               </execution>
             </executions>

@@ -18,19 +18,20 @@ import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
 
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
+import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
+import io.cloudsoft.winrm4j.client.wsman.Locale;
+import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
+import io.cloudsoft.winrm4j.client.wsman.OptionType;
+import io.cloudsoft.winrm4j.client.wsman.SelectorSetType;
+import io.cloudsoft.winrm4j.client.wsman.SelectorType;
+import io.cloudsoft.winrm4j.client.wsman.Signal;
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
-import org.apache.cxf.endpoint.ClientImpl;
-import org.apache.cxf.endpoint.Endpoint;
 import org.apache.cxf.frontend.ClientProxy;
-import org.apache.cxf.jaxws.JaxWsClientFactoryBean;
 import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduitFactory;
@@ -41,17 +42,14 @@ import org.apache.cxf.ws.addressing.JAXWSAConstants;
 import org.apache.cxf.ws.addressing.WSAddressingFeature;
 import org.apache.cxf.ws.addressing.VersionTransformer;
 import org.apache.http.auth.AuthSchemeProvider;
-import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.w3c.dom.Element;
+import org.apache.http.impl.auth.SPNegoSchemeFactory;
 
 import io.cloudsoft.winrm4j.client.shell.CommandLine;
 import io.cloudsoft.winrm4j.client.shell.CommandStateType;
@@ -85,7 +83,7 @@ public class WinRmClient {
     private String shellId;
     private SelectorSetType shellSelector;
 
-    private boolean disableCertificatesChecks;
+    private boolean disableCertificateChecks;
 
     public static Builder builder(URL endpoint) {
         return new Builder(endpoint, AuthSchemes.BASIC);
@@ -128,8 +126,8 @@ public class WinRmClient {
             client.operationTimeout = toDuration(operationTimeout);
             return this;
         }
-        public Builder setDisableCertificatesChecks(boolean disableCertificatesChecks) {
-            client.disableCertificatesChecks = disableCertificatesChecks;
+        public Builder disableCertificateChecks(boolean disableCertificateChecks) {
+            client.disableCertificateChecks = disableCertificateChecks;
             return this;
         }
         public Builder workingDirectory(String workingDirectory) {
@@ -170,9 +168,9 @@ public class WinRmClient {
         this.authenticationScheme = authenticationScheme != null ? authenticationScheme : AuthSchemes.BASIC;
         this.endpoint = endpoint;
 
-        // Needed to be async client according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
-        // TODO consider using async client for Basic authentication
-        if (this.authenticationScheme.equals(AuthSchemes.NTLM)) {
+        if (!this.authenticationScheme.equals(AuthSchemes.BASIC)) {
+            // TODO consider using async client for Basic authentication
+            // Needed to be async according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
             Bus bus = BusFactory.getDefaultBus();
             bus.getProperties().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
             bus.getProperties().put(AsyncHTTPConduitFactory.USE_POLICY, "ALWAYS");
@@ -281,14 +279,6 @@ public class WinRmClient {
         }
     }
 
-    private class JaxWsClientWithNegotiateFactoryBean extends JaxWsClientFactoryBean {
-        @Override
-        protected Client createClient(Endpoint ep) {
-            return new ClientImpl(getBus(), ep, getConduitSelector());
-        }
-
-    }
-
     private synchronized WinRm createService() {
         if (winrm != null) return winrm;
 
@@ -300,14 +290,14 @@ public class WinRmClient {
                 //   http://schemas.xmlsoap.org/ws/2004/08/addressing
                 newMemberSubmissionAddressingFeature());
 
-        // Needed to be async according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
-//        Bus bus = BusFactory.getDefaultBus();
-//        bus.setProperty(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
-
         Client client = ClientProxy.getClient(winrm);
         ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
+
+        // when client.command is executed if doclit.bare is not set then this exception occurs:
+        // Unexpected element {http://schemas.microsoft.com/wbem/wsman/1/windows/shell}CommandResponse found.
+        // Expected {http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}CommandResponse
         si.setProperty("soap.force.doclit.bare", true);
-        si.setProperty("soap.no.validate.parts", true);
+//        si.setProperty("soap.no.validate.parts", true);
 
         BindingProvider bp = (BindingProvider)winrm;
 
@@ -321,19 +311,14 @@ public class WinRmClient {
             case AuthSchemes.BASIC:
                 bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
-            case AuthSchemes.NTLM:
+                break;
+            case AuthSchemes.NTLM: case AuthSchemes.KERBEROS:
                 Credentials creds = new NTCredentials(username, password, null, null);
-
-                CredentialsProvider credsProvider = new BasicCredentialsProvider();
-                credsProvider.setCredentials(
-                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT),
-                        creds);
 
                 Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
                         .register(AuthSchemes.BASIC, new BasicSchemeFactory())
-                        // Uncomment to support Negotiate(SPNEGO)+Kerberos, only one of the next two items allowed
-                        // .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())
-                        .register(AuthSchemes.SPNEGO, new SpNegoNTLMSchemeFactory())
+                        .register(AuthSchemes.SPNEGO,
+                                authenticationScheme.equals(AuthSchemes.NTLM) ? new SpNegoNTLMSchemeFactory() : new SPNegoSchemeFactory())
                         .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())//
                         .build();
 
@@ -342,13 +327,12 @@ public class WinRmClient {
 
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
                 HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
-//            httpClientPolicy.setConnectionTimeout(36000);
                 httpClientPolicy.setAllowChunking(false);
 
                 AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
 
-                TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                if (disableCertificatesChecks) {
+                if (disableCertificateChecks) {
+                    TLSClientParameters tlsClientParameters = new TLSClientParameters();
                     tlsClientParameters.setDisableCNCheck(true);
                     tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
                         @Override
@@ -366,8 +350,8 @@ public class WinRmClient {
                             return new X509Certificate[0];
                         }
                     }});
+                    httpClient.setTlsClientParameters(tlsClientParameters);
                 }
-                httpClient.setTlsClientParameters(tlsClientParameters);
 
                 httpClient.setClient(httpClientPolicy);
                 httpClient.getClient().setAutoRedirect(true);
@@ -446,7 +430,9 @@ public class WinRmClient {
 
     public void disconnect() {
         if (winrm != null && shellSelector != null) {
-            winrm.delete(new Delete(), RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+            //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+            setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
+            winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
         }
     }
 

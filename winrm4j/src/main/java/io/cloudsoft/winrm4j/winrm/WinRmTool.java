@@ -22,13 +22,13 @@ public class WinRmTool {
     private String username;
     private String password;
     private String authenticationScheme;
-    private boolean disableCertificatesChecks;
+    private boolean disableCertificateChecks;
 
     public static class Builder {
         private String authenticationScheme = AuthSchemes.BASIC;
         private Boolean useHttps;
         private Integer port = null;
-        private boolean disableCertificatesChecks = false;
+        private boolean disableCertificateChecks = false;
         private String address;
         private String username;
         private String password;
@@ -50,8 +50,8 @@ public class WinRmTool {
             return this;
         }
 
-        public Builder disableCertificatesChecks(boolean disableCertificatesChecks) {
-            this.disableCertificatesChecks = disableCertificatesChecks;
+        public Builder disableCertificateChecks(boolean disableCertificateChecks) {
+            this.disableCertificateChecks = disableCertificateChecks;
             return this;
         }
 
@@ -66,7 +66,7 @@ public class WinRmTool {
         }
 
         public WinRmTool build() {
-            return new WinRmTool(getEndpointUrl(address, useHttps, port), username, password, authenticationScheme, disableCertificatesChecks);
+            return new WinRmTool(getEndpointUrl(address, useHttps, port), username, password, authenticationScheme, disableCertificateChecks);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -87,7 +87,7 @@ public class WinRmTool {
                 if (matchPort.matcher(address).matches()) {
                     return (useHttps ? "https" : "http") + "://" + address + "/wsman";
                 } else {
-                    if (useHttps) {
+                    if (useHttps != null && useHttps) {
                         return "https://" + address + ":" + port + "/wsman";
                     } else {
                         return "http://" + address + ":" + port + "/wsman";
@@ -102,8 +102,8 @@ public class WinRmTool {
         return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), username, password, AuthSchemes.BASIC, false);
     }
 
-    private WinRmTool(String address, String username, String password, String authenticationScheme, boolean disableCertificatesChecks) {
-        this.disableCertificatesChecks = disableCertificatesChecks;
+    private WinRmTool(String address, String username, String password, String authenticationScheme, boolean disableCertificateChecks) {
+        this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
         this.username = username;
         this.password = password;
@@ -138,9 +138,9 @@ public class WinRmTool {
         if (username != null && password != null) {
             builder.credentials(username, password);
         }
-        if (disableCertificatesChecks) {
+        if (disableCertificateChecks) {
             LOG.info("Disabled check for https connections " + this);
-            builder.setDisableCertificatesChecks(disableCertificatesChecks);
+            builder.disableCertificateChecks(disableCertificateChecks);
         }
         WinRmClient client = builder.build();
 
