@@ -86,11 +86,11 @@ public class WinRmClient {
     private boolean disableCertificateChecks;
 
     public static Builder builder(URL endpoint) {
-        return new Builder(endpoint, AuthSchemes.BASIC);
+        return new Builder(endpoint, AuthSchemes.NTLM);
     }
 
     public static Builder builder(String endpoint) {
-        return new Builder(endpoint, AuthSchemes.BASIC);
+        return new Builder(endpoint, AuthSchemes.NTLM);
     }
 
     public static Builder builder(URL endpoint, String authenticationScheme) {
@@ -165,7 +165,7 @@ public class WinRmClient {
     }
 
     private WinRmClient(URL endpoint, String authenticationScheme) {
-        this.authenticationScheme = authenticationScheme != null ? authenticationScheme : AuthSchemes.BASIC;
+        this.authenticationScheme = authenticationScheme != null ? authenticationScheme : AuthSchemes.NTLM;
         this.endpoint = endpoint;
 
         if (!this.authenticationScheme.equals(AuthSchemes.BASIC)) {

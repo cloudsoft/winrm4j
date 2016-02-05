@@ -25,7 +25,7 @@ public class WinRmTool {
     private boolean disableCertificateChecks;
 
     public static class Builder {
-        private String authenticationScheme = AuthSchemes.BASIC;
+        private String authenticationScheme = AuthSchemes.NTLM;
         private Boolean useHttps;
         private Integer port = null;
         private boolean disableCertificateChecks = false;
@@ -99,7 +99,7 @@ public class WinRmTool {
 
     @Deprecated
     public static WinRmTool connect(String address, String username, String password) {
-        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), username, password, AuthSchemes.BASIC, false);
+        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), username, password, AuthSchemes.NTLM, false);
     }
 
     private WinRmTool(String address, String username, String password, String authenticationScheme, boolean disableCertificateChecks) {
