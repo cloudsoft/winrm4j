@@ -77,6 +77,7 @@ public class WinRmClient {
     private String workingDirectory;
     private Locale locale;
     private String operationTimeout;
+    private Long receiveTimeout;
     private Map<String, String> environment;
 
     private WinRm winrm;
@@ -103,7 +104,7 @@ public class WinRmClient {
 
     public static class Builder {
         private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
-        private static final int DEFAULT_OPERATION_TIMEOUT = 60000;
+        public static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 60000l;
         private WinRmClient client;
         public Builder(URL endpoint, String authenticationScheme) {
             client = new WinRmClient(endpoint, authenticationScheme);
@@ -122,8 +123,17 @@ public class WinRmClient {
             client.locale = l;
             return this;
         }
+
+        /**
+         * If operations cannot be completed in a specified time,
+         * the service returns a fault so that a client can comply with its obligations.
+         * http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.2.0.pdf
+         * @param operationTimeout in milliseconds
+         *                         default value {@link WinRmClient.Builder#DEFAULT_OPERATION_TIMEOUT}
+         */
         public Builder operationTimeout(long operationTimeout) {
             client.operationTimeout = toDuration(operationTimeout);
+            client.receiveTimeout = operationTimeout + 30l * 1000l;
             return this;
         }
         public Builder disableCertificateChecks(boolean disableCertificateChecks) {
@@ -138,12 +148,14 @@ public class WinRmClient {
             client.environment = checkNotNull(environment, "environment");
             return this;
         }
+
         public WinRmClient build() {
             if (client.locale == null) {
                 locale(DEFAULT_LOCALE);
             }
             if (client.operationTimeout == null) {
-                operationTimeout(DEFAULT_OPERATION_TIMEOUT);
+                client.operationTimeout = toDuration(DEFAULT_OPERATION_TIMEOUT);
+                client.receiveTimeout = DEFAULT_OPERATION_TIMEOUT + 30l * 1000l;
             }
             WinRmClient ret = client;
             client = null;
@@ -324,10 +336,7 @@ public class WinRmClient {
 
                 bp.getRequestContext().put(Credentials.class.getName(), creds);
                 bp.getRequestContext().put("http.autoredirect", true);
-
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
-                HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
-                httpClientPolicy.setAllowChunking(false);
 
                 AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
 
@@ -352,6 +361,9 @@ public class WinRmClient {
                     }});
                     httpClient.setTlsClientParameters(tlsClientParameters);
                 }
+                HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+                httpClientPolicy.setAllowChunking(false);
+                httpClientPolicy.setReceiveTimeout(receiveTimeout);
 
                 httpClient.setClient(httpClientPolicy);
                 httpClient.getClient().setAutoRedirect(true);

@@ -4,6 +4,7 @@ import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import io.cloudsoft.winrm4j.client.WinRmClient;
@@ -22,6 +23,7 @@ public class WinRmTool {
     private String username;
     private String password;
     private String authenticationScheme;
+    private Long operationTimeout;
     private boolean disableCertificateChecks;
 
     public static class Builder {
@@ -33,7 +35,7 @@ public class WinRmTool {
         private String username;
         private String password;
 
-        private static final Pattern matchPort = Pattern.compile(".*:\\d+$");
+        private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
         public static Builder builder(String address, String username, String password) {
             return new Builder(address, username, password);
@@ -71,10 +73,6 @@ public class WinRmTool {
 
         // TODO remove arguments when method WinRmTool.connect() is removed
         private static String getEndpointUrl(String address, Boolean useHttps, Integer port) {
-            if (port == null && useHttps == null) {
-                throw new IllegalArgumentException("No port number or protocol is set");
-            }
-            port = port != null ? port : (useHttps ? DEFAULT_WINRM_HTTPS_PORT : DEFAULT_WINRM_PORT);
             if (address.startsWith("http:") || address.startsWith("https:")) {
                 if (useHttps != null) {
                     if (useHttps && address.startsWith("http:"))
@@ -84,9 +82,17 @@ public class WinRmTool {
                 }
                 return address;
             } else {
-                if (matchPort.matcher(address).matches()) {
+                Matcher matcher = matchPort.matcher(address);
+
+                if (matcher.matches()) {
+                    if (useHttps == null) {
+                        useHttps = matcher.group(1).equals("5986");
+                    }
                     return (useHttps ? "https" : "http") + "://" + address + "/wsman";
                 } else {
+                    if (useHttps != null) {
+                        port = port != null ? port : (useHttps ? DEFAULT_WINRM_HTTPS_PORT : DEFAULT_WINRM_PORT);
+                    }
                     if (useHttps != null && useHttps) {
                         return "https://" + address + ":" + port + "/wsman";
                     } else {
@@ -126,6 +132,19 @@ public class WinRmTool {
     }
 
     /**
+     * Updates operationTimeout for the next <code>executeXxx</code> call
+     *
+     * @see <a href="http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.2.0.pdf>DSP0226_1.2.0.pdf</a>
+     * @param operationTimeout in milliseconds
+     *                         default value {@link WinRmClient.Builder#DEFAULT_OPERATION_TIMEOUT}
+     *                         If operations cannot be completed in a specified time,
+     *                         the service returns a fault so that a client can comply with its obligations.
+     */
+    public void setOperationTimeout(Long operationTimeout) {
+        this.operationTimeout = operationTimeout;
+    }
+
+    /**
      * Executes a Native Windows command.
      * It is creating a new Shell on the destination host each time it is being called.
      * @param command The command is limited to 8096 bytes.
@@ -135,6 +154,9 @@ public class WinRmTool {
      */
     public WinRmToolResponse executeCommand(String command) {
         WinRmClient.Builder builder = WinRmClient.builder(address, authenticationScheme);
+        if (operationTimeout != null) {
+            builder.operationTimeout(operationTimeout);
+        }
         if (username != null && password != null) {
             builder.credentials(username, password);
         }

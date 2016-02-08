@@ -39,7 +39,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     public void testExecScript() throws Exception {
         assertExecSucceeds("echo myline", "myline", "");
     }
-    
+
     @Test(groups={"Live"})
     public void testExecMultiPartScript() throws Exception {
         assertExecSucceeds(ImmutableList.of("echo first", "echo second"), "first "+"\r\n"+"second", "");
@@ -478,4 +478,5 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         
         Futures.allAsList(results).get(TIMEOUT_MINS, TimeUnit.MINUTES);
     }
+
 }
