@@ -448,7 +448,7 @@ public class WinRmClient {
         }
     }
 
-    private static <T> T checkNotNull(T check, String msg) {
+    public static <T> T checkNotNull(T check, String msg) {
         if (check == null) {
             throw new NullPointerException(msg);
         }

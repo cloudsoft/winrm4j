@@ -3,6 +3,7 @@ package io.cloudsoft.winrm4j.winrm;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,12 +20,16 @@ public class WinRmTool {
     public static final int DEFAULT_WINRM_PORT = 5985;
     public static final int DEFAULT_WINRM_HTTPS_PORT = 5986;
 
-    private String address;
-    private String username;
-    private String password;
-    private String authenticationScheme;
+    // TODO consider make them non-final and accessing the properties directly from builder.
+    // This impose moving getEndpointUrl() to the WinRmTool.
+    private final String address;
+    private final String username;
+    private final String password;
+    private final String authenticationScheme;
     private Long operationTimeout;
-    private boolean disableCertificateChecks;
+    private final boolean disableCertificateChecks;
+    private final String workingDirectory;
+    private final Map<String, String> environment;
 
     public static class Builder {
         private String authenticationScheme = AuthSchemes.NTLM;
@@ -34,6 +39,8 @@ public class WinRmTool {
         private String address;
         private String username;
         private String password;
+        private String workingDirectory;
+        private Map<String, String> environment;
 
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
@@ -45,6 +52,15 @@ public class WinRmTool {
             this.address = address;
             this.username = username;
             this.password = password;
+        }
+
+        public Builder workingDirectory(String workingDirectory) {
+            this.workingDirectory = WinRmClient.checkNotNull(workingDirectory, "workingDirectory");
+            return this;
+        }
+        public Builder environment(Map<String, String> environment) {
+            this.environment = WinRmClient.checkNotNull(environment, "environment");
+            return this;
         }
 
         public Builder setAuthenticationScheme(String authenticationScheme) {
@@ -68,7 +84,7 @@ public class WinRmTool {
         }
 
         public WinRmTool build() {
-            return new WinRmTool(getEndpointUrl(address, useHttps, port), username, password, authenticationScheme, disableCertificateChecks);
+            return new WinRmTool(getEndpointUrl(address, useHttps, port), username, password, authenticationScheme, disableCertificateChecks, workingDirectory, environment);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -105,15 +121,17 @@ public class WinRmTool {
 
     @Deprecated
     public static WinRmTool connect(String address, String username, String password) {
-        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), username, password, AuthSchemes.NTLM, false);
+        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), username, password, AuthSchemes.NTLM, false, null, null);
     }
 
-    private WinRmTool(String address, String username, String password, String authenticationScheme, boolean disableCertificateChecks) {
+    private WinRmTool(String address, String username, String password, String authenticationScheme, boolean disableCertificateChecks, String workingDirectory, Map<String, String> environment) {
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
         this.username = username;
         this.password = password;
         this.authenticationScheme = authenticationScheme;
+        this.workingDirectory = workingDirectory;
+        this.environment = environment;
     }
 
     /**
@@ -163,6 +181,12 @@ public class WinRmTool {
         if (disableCertificateChecks) {
             LOG.info("Disabled check for https connections " + this);
             builder.disableCertificateChecks(disableCertificateChecks);
+        }
+        if (workingDirectory != null) {
+            builder.workingDirectory(workingDirectory);
+        }
+        if (environment != null) {
+            builder.environment(environment);
         }
         WinRmClient client = builder.build();
 
