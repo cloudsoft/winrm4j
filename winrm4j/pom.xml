@@ -26,7 +26,7 @@
   <parent>
     <groupId>io.cloudsoft.windows</groupId>
     <artifactId>winrm4j-parent</artifactId>
-    <version>0.3.1-SNAPSHOT</version> <!-- WINRM4J_VERSION -->
+    <version>0.3.1</version> <!-- WINRM4J_VERSION -->
   </parent>
 
   <name>Java WinRM library</name>
