@@ -12,12 +12,15 @@ import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
+import javax.xml.ws.soap.SOAPFaultException;
 
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
 import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
@@ -66,9 +69,17 @@ import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
  * TODO confirm if parallel commands can be called in parallel in one shell (probably not)!
  */
 public class WinRmClient {
+    private static final Logger LOG = LoggerFactory.getLogger(WinRmClient.class.getName());
+
     private static final String COMMAND_STATE_DONE = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/CommandState/Done";
     private static final int MAX_ENVELOPER_SIZE = 153600;
     private static final String RESOURCE_URI = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd";
+
+    /**
+     * If no output is available before the wsman:OperationTimeout expires, the server MUST return a WSManFault with the Code attribute equal to "2150858793"
+     * https://msdn.microsoft.com/en-us/library/cc251676.aspx
+      */
+    private static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED =  "2150858793";
 
     private final String authenticationScheme;
     private URL endpoint;
@@ -83,6 +94,8 @@ public class WinRmClient {
     private WinRm winrm;
     private String shellId;
     private SelectorSetType shellSelector;
+
+    private int numberOfReceiveCalls;
 
     private boolean disableCertificateChecks;
 
@@ -104,7 +117,7 @@ public class WinRmClient {
 
     public static class Builder {
         private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
-        public static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 60000l;
+        public static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
         private WinRmClient client;
         public Builder(URL endpoint, String authenticationScheme) {
             client = new WinRmClient(endpoint, authenticationScheme);
@@ -205,6 +218,7 @@ public class WinRmClient {
         optSkipCmdShell.setValue("FALSE");
         optSetCmd.getOption().add(optSkipCmdShell);
 
+        numberOfReceiveCalls = 0;
         //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
         setActionToContext((BindingProvider) service, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
         CommandResponse cmdResponse = service.command(cmdLine, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
@@ -244,42 +258,78 @@ public class WinRmClient {
 
             //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
             setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive");
-            ReceiveResponse receiveResponse = winrm.receive(receive, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
-            List<StreamType> streams = receiveResponse.getStream();
-            for (StreamType s : streams) {
-                byte[] value = s.getValue();
-                if (value == null) continue;
-                if (out != null && "stdout".equals(s.getName())) {
-                    try {
-                        //TODO use passed locale?
-                        if (value.length > 0) {
-                            out.write(new String(value));
-                        }
-                        if (Boolean.TRUE.equals(s.isEnd())) {
-                            out.close();
-                        }
-                    } catch (IOException e) {
-                        throw new IllegalStateException(e);
-                    }
+
+            try {
+                numberOfReceiveCalls++;
+                ReceiveResponse receiveResponse = winrm.receive(receive, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+                getStreams(receiveResponse, out, err);
+
+                CommandStateType state = receiveResponse.getCommandState();
+                if (COMMAND_STATE_DONE.equals(state.getState())) {
+                    return state.getExitCode().intValue();
+                } else {
+                    LOG.debug("{} is not done. Response it received: {}", this, receiveResponse);
                 }
-                if (err != null && "stderr".equals(s.getName())) {
-                    try {
-                        //TODO use passed locale?
-                        if (value.length > 0) {
-                            err.write(new String(value));
-                        }
-                        if (Boolean.TRUE.equals(s.isEnd())) {
-                            err.close();
-                        }
-                    } catch (IOException e) {
-                        throw new IllegalStateException(e);
+            } catch (SOAPFaultException soapFault) {
+                /**
+                 * If such Exception which has a code 2150858793 the client is expected to again trigger immediately a receive request.
+                 * https://msdn.microsoft.com/en-us/library/cc251676.aspx
+                 */
+
+                try {
+                    if (soapFault.getFault().getDetail().getFirstChild().getAttributes().getNamedItem("Code").getNodeValue().equals(WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED)) {
+                        LOG.trace("winrm client {} received an operation response {}", this, soapFault);
+                    } else {
+                        throw soapFault;
                     }
+                } catch (NullPointerException e) {
+                    throw soapFault;
                 }
             }
-            CommandStateType state = receiveResponse.getCommandState();
-            if (COMMAND_STATE_DONE.equals(state.getState())) {
-                return state.getExitCode().intValue();
+        }
+    }
+
+    public int getNumberOfReceiveCalls() {
+        return numberOfReceiveCalls;
+    }
+
+    private void getStreams(ReceiveResponse receiveResponse, Writer out, Writer err) {
+        List<StreamType> streams = receiveResponse.getStream();
+        for (StreamType s : streams) {
+            byte[] value = s.getValue();
+            if (value == null) continue;
+            if (out != null && "stdout".equals(s.getName())) {
+                try {
+                    //TODO use passed locale?
+                    if (value.length > 0) {
+                        out.write(new String(value));
+                    }
+                    if (Boolean.TRUE.equals(s.isEnd())) {
+                        out.close();
+                    }
+                } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                }
             }
+            if (err != null && "stderr".equals(s.getName())) {
+                try {
+                    //TODO use passed locale?
+                    if (value.length > 0) {
+                        err.write(new String(value));
+                    }
+                    if (Boolean.TRUE.equals(s.isEnd())) {
+                        err.close();
+                    }
+                } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
+        try {
+            out.close();
+            err.close();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
         }
     }
     
