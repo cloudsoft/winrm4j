@@ -1,16 +1,12 @@
 package io.cloudsoft.winrm4j.winrm;
 
 import com.google.common.base.Stopwatch;
-import io.cloudsoft.winrm4j.client.WinRmClient;
 import org.testng.annotations.Test;
-
-import javax.xml.ws.WebServiceException;
 
 import java.util.logging.Logger;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class WinRmToolOperationTimeoutLiveTest extends AbstractWinRmToolLiveTest {
     private static final Logger LOG = Logger.getLogger(WinRmToolExecLiveTest.class.getName());
@@ -37,15 +33,15 @@ public class WinRmToolOperationTimeoutLiveTest extends AbstractWinRmToolLiveTest
 
     @Test(groups = "Live")
     public void testExceedingSpecifiedOperationTimeout() throws Exception {
-        final Long operationTimeoutInSeconds = 10l; // Put WinRmClient.Builder.DEFAULT_OPERATION_TIMEOUT / 1000 to test the default value
+        final Long operationTimeoutInSeconds = 5l; // Put WinRmClient.Builder.DEFAULT_OPERATION_TIMEOUT / 1000 to test the default value
         WinRmTool winRmTool = WINRM_TOOL.call();
         winRmTool.setOperationTimeout(operationTimeoutInSeconds * 1000l);
 
-        try {
-            winRmTool.executePs(String.format("Start-Sleep -s %d\r\nWrite-Host Test Completed", operationTimeoutInSeconds + 5));
-            fail("Command should fail to complete on time.");
-        } catch (WebServiceException e) {
-            assertTrue(e.getMessage().contains("The WS-Management service cannot complete the operation within the time specified in OperationTimeout"));
-        }
+        WinRmToolResponse response = winRmTool.executePs(String.format("Start-Sleep -s %d\r\nWrite-Host Test Completed", 4 * operationTimeoutInSeconds));
+
+        assertEquals(response.getStdOut(), "Test Completed\n");
+        assertEquals(response.getStdErr(), "");
+        assertEquals(response.getNumberOfReceiveCalls(), 4);
     }
+
 }

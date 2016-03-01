@@ -1,5 +1,7 @@
 package io.cloudsoft.winrm4j.client;
 
+import org.apache.cxf.bus.CXFBusFactory;
+
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 
@@ -22,15 +24,19 @@ public class CliClient {
         String cmd = args[3];
 
         WinRmClient client = WinRmClient.builder(endpoint)
+                .disableCertificateChecks(true)
                 .credentials(username, password)
                 .workingDirectory("C:\\")
 //                .environment(env)
                 .build();
-
+        int exitCode = 999;
         try {
-            client.command(cmd, new PrintWriter(new OutputStreamWriter(System.out)), new PrintWriter(new OutputStreamWriter(System.err)));
+            exitCode = client.command(cmd, new PrintWriter(new OutputStreamWriter(System.out)), new PrintWriter(new OutputStreamWriter(System.err)));
         } finally {
             client.disconnect();
+
+            CXFBusFactory.clearDefaultBusForAnyThread(CXFBusFactory.getDefaultBus());
         }
+        System.exit(exitCode);
     }
 }

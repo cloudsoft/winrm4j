@@ -4,6 +4,7 @@ public class WinRmToolResponse {
     private final String stdout;
     private final String stderr;
     private final int statusCode;
+    private int numberOfReceiveCalls;
 
     public WinRmToolResponse(String stdout, String stderr, int statusCode) {
         this.stdout = stdout;
@@ -21,5 +22,13 @@ public class WinRmToolResponse {
 
     public int getStatusCode() {
         return statusCode;
+    }
+
+    public void setNumberOfReceiveCalls(int numberOfReceiveCalls) {
+        this.numberOfReceiveCalls = numberOfReceiveCalls;
+    }
+
+    public int getNumberOfReceiveCalls() {
+        return numberOfReceiveCalls;
     }
 }
