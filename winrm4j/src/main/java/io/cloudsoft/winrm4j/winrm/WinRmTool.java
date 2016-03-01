@@ -4,7 +4,8 @@ import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,7 +16,7 @@ import org.apache.http.client.config.AuthSchemes;
  * Tool for executing commands over WinRM.
  */
 public class WinRmTool {
-    private static final Logger LOG = Logger.getLogger(WinRmTool.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(WinRmTool.class.getName());
 
     public static final int DEFAULT_WINRM_PORT = 5985;
     public static final int DEFAULT_WINRM_HTTPS_PORT = 5986;
@@ -195,7 +196,9 @@ public class WinRmTool {
 
         try {
             int code = client.command(command, out, err);
-            return new WinRmToolResponse(out.toString(), err.toString(), code);
+            WinRmToolResponse winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
+            winRmToolResponse.setNumberOfReceiveCalls(client.getNumberOfReceiveCalls());
+            return winRmToolResponse;
         } finally {
             client.disconnect();
         }
