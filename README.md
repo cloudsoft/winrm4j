@@ -29,17 +29,32 @@ Add the following to your `pom.xml`:
 
 ### Java client usage
 
-To use winrm4j in Java code, you first create a `WinRmTool` object via the static `connect` method. It exposes the methods
+To use winrm4j in Java code, you first create a `WinRmTool` object via the static `WinRmTool.Builder` class.
+`WinRmTool.Builder` has several options which you might consider setting before instantiating a `WinRmTool`:
+
+* `workingDirectory(String)`
+* `environment(Map<String,String>)`
+* `setAuthenticationScheme(String)`
+* `disableCertificateChecks(boolean)`
+* `useHttps(boolean)`
+* `port(int)`
+
+A `WinRmTool` instance supports the basic `executeCommand(String)` method which executes windows native commands.
+Through `executeCommand(String)` method supports:
+
+* `executeCommand(List<String>)` executeList of commands concatenated with &
+* `executePs(String)` execute a PowerShell command with the native windows command
+* `executePs(List<String>)` list of PowerShell commands
+
+It exposes the methods
 `executeScript` and `executePs`, which can be used to execute batch or PowerShell statements respectively.
 
 ``` java
-WinRMTool winrm = WinRmTool.connect("my.windows.server.com", "Administrator", "pa55w0rd!");
-
-WinRmToolResponse response = winrm.executeScript(ImmutableList.of("dir C:\\"));
-System.out.println(response.getStdOut());
-
-response = session.executePs(ImmutableList.of("ls C:\\"));
-System.out.println(response.getStdOut());
+WinRmTool.Builder builder = WinRmTool.Builder.builder("my.windows.server.com", "Administrator", "pa55w0rd!");
+builder.setAuthenticationScheme(AuthSchemes.NTLM);
+builder.port(5985);
+builder.useHttps(false);
+WinRmTool tool =  builder.build();
 ```
 
 ### License
