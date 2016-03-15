@@ -27,6 +27,7 @@ public class CliClient {
                 .disableCertificateChecks(true)
                 .credentials(username, password)
                 .workingDirectory("C:\\")
+                .disableCertificateChecks(true)
 //                .environment(env)
                 .build();
         int exitCode = 999;

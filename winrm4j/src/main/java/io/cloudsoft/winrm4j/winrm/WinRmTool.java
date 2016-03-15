@@ -28,6 +28,7 @@ public class WinRmTool {
     private final String password;
     private final String authenticationScheme;
     private Long operationTimeout;
+    private Integer retriesForConnectionFailures;
     private final boolean disableCertificateChecks;
     private final String workingDirectory;
     private final Map<String, String> environment;
@@ -163,6 +164,10 @@ public class WinRmTool {
         this.operationTimeout = operationTimeout;
     }
 
+    public void setRetriesForConnectionFailures(Integer retriesForConnectionFailures) {
+        this.retriesForConnectionFailures = retriesForConnectionFailures;
+    }
+
     /**
      * Executes a Native Windows command.
      * It is creating a new Shell on the destination host each time it is being called.
@@ -180,7 +185,7 @@ public class WinRmTool {
             builder.credentials(username, password);
         }
         if (disableCertificateChecks) {
-            LOG.info("Disabled check for https connections " + this);
+            LOG.trace("Disabled check for https connections " + this);
             builder.disableCertificateChecks(disableCertificateChecks);
         }
         if (workingDirectory != null) {
@@ -189,6 +194,10 @@ public class WinRmTool {
         if (environment != null) {
             builder.environment(environment);
         }
+        if (retriesForConnectionFailures != null) {
+            builder.retriesForConnectionFailures(retriesForConnectionFailures);
+        }
+
         WinRmClient client = builder.build();
 
         StringWriter out = new StringWriter();
