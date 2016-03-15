@@ -3,12 +3,14 @@ package io.cloudsoft.winrm4j.client;
 import java.io.IOException;
 import java.io.Writer;
 import java.math.BigDecimal;
+import java.net.ConnectException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -24,12 +26,14 @@ import javax.xml.ws.soap.SOAPFaultException;
 
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
 import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
+import io.cloudsoft.winrm4j.client.wsman.DeleteResponse;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.client.wsman.OptionType;
 import io.cloudsoft.winrm4j.client.wsman.SelectorSetType;
 import io.cloudsoft.winrm4j.client.wsman.SelectorType;
 import io.cloudsoft.winrm4j.client.wsman.Signal;
+import io.cloudsoft.winrm4j.client.wsman.SignalResponse;
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
@@ -89,6 +93,7 @@ public class WinRmClient {
     private Locale locale;
     private String operationTimeout;
     private Long receiveTimeout;
+    private Integer retriesForConnectionFailures;
     private Map<String, String> environment;
 
     private WinRm winrm;
@@ -146,9 +151,19 @@ public class WinRmClient {
          */
         public Builder operationTimeout(long operationTimeout) {
             client.operationTimeout = toDuration(operationTimeout);
-            client.receiveTimeout = operationTimeout + 30l * 1000l;
+            client.receiveTimeout = operationTimeout + 60l * 1000l;
             return this;
         }
+
+        public Builder retriesForConnectionFailures(Integer retriesConnectionFailures) {
+            checkNotNull(retriesConnectionFailures, "retriesConnectionFailures");
+            if (retriesConnectionFailures < 1) {
+               throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
+            }
+            client.retriesForConnectionFailures = retriesConnectionFailures;
+            return this;
+        }
+
         public Builder disableCertificateChecks(boolean disableCertificateChecks) {
             client.disableCertificateChecks = disableCertificateChecks;
             return this;
@@ -204,11 +219,11 @@ public class WinRmClient {
 
     public int command(String cmd, Writer out, Writer err) {
         checkNotNull(cmd, "command");
-        WinRm service = getService();
+        final WinRm service = getService();
 
-        CommandLine cmdLine = new CommandLine();
+        final CommandLine cmdLine = new CommandLine();
         cmdLine.setCommand(cmd);
-        OptionSetType optSetCmd = new OptionSetType();
+        final OptionSetType optSetCmd = new OptionSetType();
         OptionType optConsolemodeStdin = new OptionType();
         optConsolemodeStdin.setName("WINRS_CONSOLEMODE_STDIN");
         optConsolemodeStdin.setValue("TRUE");
@@ -219,9 +234,15 @@ public class WinRmClient {
         optSetCmd.getOption().add(optSkipCmdShell);
 
         numberOfReceiveCalls = 0;
-        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-        setActionToContext((BindingProvider) service, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
-        CommandResponse cmdResponse = service.command(cmdLine, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
+        CommandResponse cmdResponse = winrmCallRetryConnFailure(new CallableFunction<CommandResponse>() {
+            @Override
+            public CommandResponse call() {
+                //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+                setActionToContext((BindingProvider) service, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
+                return service.command(cmdLine, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
+            }
+        });
+
         String commandId = cmdResponse.getCommandId();
 
         try {
@@ -239,29 +260,40 @@ public class WinRmClient {
     }
 
     private void releaseCommand(String commandId) {
-        Signal signal = new Signal();
+        final Signal signal = new Signal();
         signal.setCommandId(commandId);
         signal.setCode("http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/terminate");
 
-        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-        setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal");
-        winrm.signal(signal, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+        winrmCallRetryConnFailure(new CallableFunction<SignalResponse>() {
+            @Override
+            public SignalResponse call() {
+                //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+                setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal");
+                return winrm.signal(signal, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+            }
+        });
+
     }
 
     private int receiveCommand(String commandId, Writer out, Writer err) {
         while(true) {
-            Receive receive = new Receive();
+            final Receive receive = new Receive();
             DesiredStreamType stream = new DesiredStreamType();
             stream.setCommandId(commandId);
             stream.setValue("stdout stderr");
             receive.setDesiredStream(stream);
 
-            //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-            setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive");
 
             try {
                 numberOfReceiveCalls++;
-                ReceiveResponse receiveResponse = winrm.receive(receive, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+                ReceiveResponse receiveResponse = winrmCallRetryConnFailure(new CallableFunction<ReceiveResponse>() {
+                    @Override
+                    public ReceiveResponse call() {
+                        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+                        setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive");
+                        return winrm.receive(receive, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+                    }
+                });
                 getStreams(receiveResponse, out, err);
 
                 CommandStateType state = receiveResponse.getCommandState();
@@ -283,6 +315,7 @@ public class WinRmClient {
                         throw soapFault;
                     }
                 } catch (NullPointerException e) {
+                    LOG.debug("Error reading Fault Code {}", soapFault.getFault());
                     throw soapFault;
                 }
             }
@@ -441,7 +474,7 @@ public class WinRmClient {
             shell.setEnvironment(env);
         }
 
-        OptionSetType optSetCreate = new OptionSetType();
+        final OptionSetType optSetCreate = new OptionSetType();
         OptionType optNoProfile = new OptionType();
         optNoProfile.setName("WINRS_NOPROFILE");
         optNoProfile.setValue("FALSE");
@@ -451,10 +484,15 @@ public class WinRmClient {
         optCodepage.setValue("437");
         optSetCreate.getOption().add(optCodepage);
 
-        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-        setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create");
-        Holder<Shell> holder = new Holder<>(shell);
-        ResourceCreated resourceCreated = winrm.create(holder, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
+        final Holder<Shell> holder = new Holder<>(shell);
+        ResourceCreated resourceCreated = winrmCallRetryConnFailure(new CallableFunction<ResourceCreated>() {
+            @Override
+            public ResourceCreated call() {
+                //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+                setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create");
+                return winrm.create(holder, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
+            }
+        });
         shellId = holder.value.getShellId();
 
         shellSelector = new SelectorSetType();
@@ -492,9 +530,14 @@ public class WinRmClient {
 
     public void disconnect() {
         if (winrm != null && shellSelector != null) {
-            //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-            setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
-            winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+            winrmCallRetryConnFailure(new CallableFunction<DeleteResponse>() {
+                @Override
+                public DeleteResponse call() {
+                    //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+                    setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
+                    return winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+                }
+            });
         }
     }
 
@@ -503,5 +546,39 @@ public class WinRmClient {
             throw new NullPointerException(msg);
         }
         return check;
+    }
+
+    private <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall) {
+        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 10;
+        List<Throwable> exceptions = new ArrayList<>();
+
+        for (int i = 0; i < retries; i++) {
+            try {
+                return winrmCall.call();
+            } catch (SOAPFaultException soapFault) {
+                throw soapFault;
+            } catch (javax.xml.ws.WebServiceException wsException) {
+                if (wsException.getCause() instanceof ConnectException) {
+                    if (i == (retries + 1)) {
+                        LOG.info("Propagating Connection RM exception (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
+                    } else if (i == 0) {
+                        LOG.warn("Ignoring exception and retrying (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
+                    } else {
+                        LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
+                    }
+                }
+                exceptions.add(wsException);
+            }
+        }
+        throw new RuntimeException("failed task "+winrmCall, exceptions.get(exceptions.size()-1));
+    }
+
+    /**
+     * A {@link java.util.concurrent.Callable} like but without <code>throws Exception</code> signature
+     *
+     * @param <V> the result type of method {@code call}
+     */
+    private interface CallableFunction<V> {
+        V call();
     }
 }
