@@ -5,6 +5,7 @@ import java.io.Writer;
 import java.math.BigDecimal;
 import java.net.ConnectException;
 import java.net.MalformedURLException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,11 +84,12 @@ public class WinRmClient {
     /**
      * If no output is available before the wsman:OperationTimeout expires, the server MUST return a WSManFault with the Code attribute equal to "2150858793"
      * https://msdn.microsoft.com/en-us/library/cc251676.aspx
-      */
-    private static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED =  "2150858793";
+     */
+    private static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED = "2150858793";
 
     private final String authenticationScheme;
     private URL endpoint;
+    private String domain;
     private String username;
     private String password;
     private String workingDirectory;
@@ -131,6 +134,10 @@ public class WinRmClient {
             this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")), authenticationScheme);
         }
         public Builder credentials(String username, String password) {
+            return credentials(null, username, password);
+        }
+        public Builder credentials(String domain, String username, String password) {
+            client.domain = domain;
             client.username = checkNotNull(username, "username");
             client.password = checkNotNull(password, "password");
             return this;
@@ -146,6 +153,7 @@ public class WinRmClient {
          * If operations cannot be completed in a specified time,
          * the service returns a fault so that a client can comply with its obligations.
          * http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.2.0.pdf
+         *
          * @param operationTimeout in milliseconds
          *                         default value {@link WinRmClient.Builder#DEFAULT_OPERATION_TIMEOUT}
          */
@@ -156,9 +164,8 @@ public class WinRmClient {
         }
 
         public Builder retriesForConnectionFailures(Integer retriesConnectionFailures) {
-            checkNotNull(retriesConnectionFailures, "retriesConnectionFailures");
             if (retriesConnectionFailures < 1) {
-               throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
+                throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
             }
             client.retriesForConnectionFailures = retriesConnectionFailures;
             return this;
@@ -234,14 +241,9 @@ public class WinRmClient {
         optSetCmd.getOption().add(optSkipCmdShell);
 
         numberOfReceiveCalls = 0;
-        CommandResponse cmdResponse = winrmCallRetryConnFailure(new CallableFunction<CommandResponse>() {
-            @Override
-            public CommandResponse call() {
-                //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-                setActionToContext((BindingProvider) service, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
-                return service.command(cmdLine, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
-            }
-        });
+        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+        setActionToContext((BindingProvider) service, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
+        CommandResponse cmdResponse = service.command(cmdLine, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
 
         String commandId = cmdResponse.getCommandId();
 
@@ -365,7 +367,7 @@ public class WinRmClient {
             throw new IllegalStateException(e);
         }
     }
-    
+
     private WinRm getService() {
         if (winrm != null) {
             return winrm;
@@ -402,13 +404,13 @@ public class WinRmClient {
 
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint.toExternalForm());
 
-        switch(authenticationScheme) {
+        switch (authenticationScheme) {
             case AuthSchemes.BASIC:
                 bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
                 break;
             case AuthSchemes.NTLM: case AuthSchemes.KERBEROS:
-                Credentials creds = new NTCredentials(username, password, null, null);
+                Credentials creds = new NTCredentials(username, password, null, domain);
 
                 Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
                         .register(AuthSchemes.BASIC, new BasicSchemeFactory())
@@ -500,7 +502,7 @@ public class WinRmClient {
         sel.setName("ShellId");
         sel.getContent().add(shellId);
         shellSelector.getSelector().add(sel);
-        
+
         return winrm;
     }
 
@@ -548,29 +550,30 @@ public class WinRmClient {
         return check;
     }
 
-    private <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall) {
-        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 10;
+    private <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall) throws SOAPFaultException {
+        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 5;
         List<Throwable> exceptions = new ArrayList<>();
 
-        for (int i = 0; i < retries; i++) {
+        for (int i = 0; i < retries + 1; i++) {
             try {
                 return winrmCall.call();
             } catch (SOAPFaultException soapFault) {
                 throw soapFault;
             } catch (javax.xml.ws.WebServiceException wsException) {
-                if (wsException.getCause() instanceof ConnectException) {
-                    if (i == (retries + 1)) {
-                        LOG.info("Propagating Connection RM exception (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
-                    } else if (i == 0) {
-                        LOG.warn("Ignoring exception and retrying (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
-                    } else {
-                        LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
-                    }
+                if (!(wsException.getCause() instanceof ConnectException || wsException.getCause() instanceof SocketTimeoutException)) {
+                    throw new RuntimeException("Exception occured while making winrm call", wsException);
+                }
+                LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
+                try {
+                    Thread.sleep(5 * 1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Exception occured while making winrm call", e.initCause(wsException));
                 }
                 exceptions.add(wsException);
             }
         }
-        throw new RuntimeException("failed task "+winrmCall, exceptions.get(exceptions.size()-1));
+        throw new RuntimeException("failed task " + winrmCall, exceptions.get(0));
     }
 
     /**
