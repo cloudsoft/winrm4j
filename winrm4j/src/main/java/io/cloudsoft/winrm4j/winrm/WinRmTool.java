@@ -24,10 +24,12 @@ public class WinRmTool {
     // TODO consider make them non-final and accessing the properties directly from builder.
     // This impose moving getEndpointUrl() to the WinRmTool.
     private final String address;
+    private final String domain;
     private final String username;
     private final String password;
     private final String authenticationScheme;
     private Long operationTimeout;
+    private Integer retriesForConnectionFailures;
     private final boolean disableCertificateChecks;
     private final String workingDirectory;
     private final Map<String, String> environment;
@@ -38,6 +40,7 @@ public class WinRmTool {
         private Integer port = null;
         private boolean disableCertificateChecks = false;
         private String address;
+        private String domain;
         private String username;
         private String password;
         private String workingDirectory;
@@ -46,11 +49,15 @@ public class WinRmTool {
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
         public static Builder builder(String address, String username, String password) {
-            return new Builder(address, username, password);
+            return builder(address, null, username, password);
+        }
+        public static Builder builder(String address, String domain, String username, String password) {
+            return new Builder(address, domain, username, password);
         }
 
-        private Builder(String address, String username, String password) {
+        private Builder(String address, String domain, String username, String password) {
             this.address = address;
+            this.domain = domain;
             this.username = username;
             this.password = password;
         }
@@ -85,7 +92,7 @@ public class WinRmTool {
         }
 
         public WinRmTool build() {
-            return new WinRmTool(getEndpointUrl(address, useHttps, port), username, password, authenticationScheme, disableCertificateChecks, workingDirectory, environment);
+            return new WinRmTool(getEndpointUrl(address, useHttps, port), domain, username, password, authenticationScheme, disableCertificateChecks, workingDirectory, environment);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -122,12 +129,13 @@ public class WinRmTool {
 
     @Deprecated
     public static WinRmTool connect(String address, String username, String password) {
-        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), username, password, AuthSchemes.NTLM, false, null, null);
+        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), null, username, password, AuthSchemes.NTLM, false, null, null);
     }
 
-    private WinRmTool(String address, String username, String password, String authenticationScheme, boolean disableCertificateChecks, String workingDirectory, Map<String, String> environment) {
+    private WinRmTool(String address, String domain, String username, String password, String authenticationScheme, boolean disableCertificateChecks, String workingDirectory, Map<String, String> environment) {
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
+        this.domain = domain;
         this.username = username;
         this.password = password;
         this.authenticationScheme = authenticationScheme;
@@ -163,6 +171,10 @@ public class WinRmTool {
         this.operationTimeout = operationTimeout;
     }
 
+    public void setRetriesForConnectionFailures(Integer retriesForConnectionFailures) {
+        this.retriesForConnectionFailures = retriesForConnectionFailures;
+    }
+
     /**
      * Executes a Native Windows command.
      * It is creating a new Shell on the destination host each time it is being called.
@@ -177,10 +189,10 @@ public class WinRmTool {
             builder.operationTimeout(operationTimeout);
         }
         if (username != null && password != null) {
-            builder.credentials(username, password);
+            builder.credentials(domain, username, password);
         }
         if (disableCertificateChecks) {
-            LOG.info("Disabled check for https connections " + this);
+            LOG.trace("Disabled check for https connections " + this);
             builder.disableCertificateChecks(disableCertificateChecks);
         }
         if (workingDirectory != null) {
@@ -189,6 +201,10 @@ public class WinRmTool {
         if (environment != null) {
             builder.environment(environment);
         }
+        if (retriesForConnectionFailures != null) {
+            builder.retriesForConnectionFailures(retriesForConnectionFailures);
+        }
+
         WinRmClient client = builder.build();
 
         StringWriter out = new StringWriter();
