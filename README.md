@@ -23,7 +23,7 @@ Add the following to your `pom.xml`:
 <dependency>
   <groupId>io.cloudsoft.windows</groupId>
   <artifactId>winrm4j</artifactId>
-  <version>0.3.3</version> <!-- WINRM4J_VERSION -->
+  <version>0.3.4</version> <!-- WINRM4J_VERSION -->
 </dependency>
 ```
 
