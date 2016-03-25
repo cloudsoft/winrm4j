@@ -5,6 +5,7 @@ import java.io.Writer;
 import java.math.BigDecimal;
 import java.net.ConnectException;
 import java.net.MalformedURLException;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.security.cert.CertificateException;
@@ -86,6 +87,13 @@ public class WinRmClient {
      * https://msdn.microsoft.com/en-us/library/cc251676.aspx
      */
     private static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED = "2150858793";
+
+    /**
+     * Example response:
+     *   [truncated]The request for the Windows Remote Shell with ShellId xxxx-yyyy-ccc... failed because the shell was not found on the server.
+     *   Possible causes are: the specified ShellId is incorrect or the shell no longer exi
+     */
+    private static final String WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND = "2150858843";
 
     private final String authenticationScheme;
     private URL endpoint;
@@ -250,7 +258,11 @@ public class WinRmClient {
         try {
             return receiveCommand(commandId, out, err);
         } finally {
-            releaseCommand(commandId);
+            try {
+                releaseCommand(commandId);
+            } catch (SOAPFaultException soapFault) {
+                assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
+            }
         }
     }
 
@@ -309,18 +321,21 @@ public class WinRmClient {
                  * If such Exception which has a code 2150858793 the client is expected to again trigger immediately a receive request.
                  * https://msdn.microsoft.com/en-us/library/cc251676.aspx
                  */
-
-                try {
-                    if (soapFault.getFault().getDetail().getFirstChild().getAttributes().getNamedItem("Code").getNodeValue().equals(WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED)) {
-                        LOG.trace("winrm client {} received an operation response {}", this, soapFault);
-                    } else {
-                        throw soapFault;
-                    }
-                } catch (NullPointerException e) {
-                    LOG.debug("Error reading Fault Code {}", soapFault.getFault());
-                    throw soapFault;
-                }
+                assertFaultCode(soapFault, WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED);
             }
+        }
+    }
+
+    private void assertFaultCode(SOAPFaultException soapFault, String code) {
+        try {
+            if (soapFault.getFault().getDetail().getFirstChild().getAttributes().getNamedItem("Code").getNodeValue().equals(code)) {
+                LOG.trace("winrm client {} received error 500 response with code {}, response {}", this, code, soapFault);
+            } else {
+                throw soapFault;
+            }
+        } catch (NullPointerException e) {
+            LOG.debug("Error reading Fault Code {}", soapFault.getFault());
+            throw soapFault;
         }
     }
 
@@ -532,14 +547,18 @@ public class WinRmClient {
 
     public void disconnect() {
         if (winrm != null && shellSelector != null) {
-            winrmCallRetryConnFailure(new CallableFunction<DeleteResponse>() {
-                @Override
-                public DeleteResponse call() {
-                    //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-                    setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
-                    return winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
-                }
-            });
+            try {
+                winrmCallRetryConnFailure(new CallableFunction<DeleteResponse>() {
+                    @Override
+                    public DeleteResponse call() {
+                        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+                        setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
+                        return winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+                    }
+                });
+            } catch (SOAPFaultException soapFault) {
+                assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
+            }
         }
     }
 
@@ -551,7 +570,7 @@ public class WinRmClient {
     }
 
     private <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall) throws SOAPFaultException {
-        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 5;
+        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 8;
         List<Throwable> exceptions = new ArrayList<>();
 
         for (int i = 0; i < retries + 1; i++) {
@@ -560,10 +579,10 @@ public class WinRmClient {
             } catch (SOAPFaultException soapFault) {
                 throw soapFault;
             } catch (javax.xml.ws.WebServiceException wsException) {
-                if (!(wsException.getCause() instanceof ConnectException || wsException.getCause() instanceof SocketTimeoutException)) {
+                if (!(wsException.getCause() instanceof ConnectException || wsException.getCause() instanceof SocketTimeoutException || wsException.getCause() instanceof SocketException)) {
                     throw new RuntimeException("Exception occured while making winrm call", wsException);
                 }
-                LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + retries + ") {}", wsException);
+                LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + (retries + 1) + ") {}", wsException);
                 try {
                     Thread.sleep(5 * 1000);
                 } catch (InterruptedException e) {
