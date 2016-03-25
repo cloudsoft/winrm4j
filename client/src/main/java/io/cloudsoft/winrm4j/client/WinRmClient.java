@@ -71,6 +71,7 @@ import io.cloudsoft.winrm4j.client.shell.ReceiveResponse;
 import io.cloudsoft.winrm4j.client.shell.Shell;
 import io.cloudsoft.winrm4j.client.shell.StreamType;
 import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
+import org.w3c.dom.NodeList;
 
 /**
  * TODO confirm if parallel commands can be called in parallel in one shell (probably not)!
@@ -328,11 +329,18 @@ public class WinRmClient {
 
     private void assertFaultCode(SOAPFaultException soapFault, String code) {
         try {
-            if (soapFault.getFault().getDetail().getFirstChild().getAttributes().getNamedItem("Code").getNodeValue().equals(code)) {
-                LOG.trace("winrm client {} received error 500 response with code {}, response {}", this, code, soapFault);
-            } else {
-                throw soapFault;
+            NodeList faultDetails = soapFault.getFault().getDetail().getChildNodes();
+            for (int i = 0; i < faultDetails.getLength(); i++) {
+                if (faultDetails.item(i).getLocalName().equals("WSManFault")) {
+                    if (faultDetails.item(i).getAttributes().getNamedItem("Code").getNodeValue().equals(code)) {
+                        LOG.trace("winrm client {} received error 500 response with code {}, response {}", this, code, soapFault);
+                        return;
+                    } else {
+                        throw soapFault;
+                    }
+                }
             }
+            throw soapFault;
         } catch (NullPointerException e) {
             LOG.debug("Error reading Fault Code {}", soapFault.getFault());
             throw soapFault;
@@ -570,7 +578,7 @@ public class WinRmClient {
     }
 
     private <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall) throws SOAPFaultException {
-        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 8;
+        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 16;
         List<Throwable> exceptions = new ArrayList<>();
 
         for (int i = 0; i < retries + 1; i++) {
@@ -579,8 +587,8 @@ public class WinRmClient {
             } catch (SOAPFaultException soapFault) {
                 throw soapFault;
             } catch (javax.xml.ws.WebServiceException wsException) {
-                if (!(wsException.getCause() instanceof ConnectException || wsException.getCause() instanceof SocketTimeoutException || wsException.getCause() instanceof SocketException)) {
-                    throw new RuntimeException("Exception occured while making winrm call", wsException);
+                if (!(wsException.getCause() instanceof IOException)) {
+                    throw new RuntimeException("Exception occurred while making winrm call", wsException);
                 }
                 LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + (retries + 1) + ") {}", wsException);
                 try {
