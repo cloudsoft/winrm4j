@@ -20,6 +20,7 @@ import java.util.Map.Entry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
@@ -115,6 +116,7 @@ public class WinRmClient {
     private int numberOfReceiveCalls;
 
     private boolean disableCertificateChecks;
+    private HostnameVerifier hostnameVerifier;
 
     public static Builder builder(URL endpoint) {
         return new Builder(endpoint, AuthSchemes.NTLM);
@@ -191,6 +193,11 @@ public class WinRmClient {
         public Builder environment(Map<String, String> environment) {
             client.environment = checkNotNull(environment, "environment");
             return this;
+        }
+        
+        public Builder hostnameVerifier(HostnameVerifier hostnameVerifier) {
+        	client.hostnameVerifier = hostnameVerifier;
+        	return this;
         }
 
         public WinRmClient build() {
@@ -468,6 +475,11 @@ public class WinRmClient {
                         }
                     }});
                     httpClient.setTlsClientParameters(tlsClientParameters);
+                }
+                if (hostnameVerifier != null) {
+                	TLSClientParameters tlsClientParameters = new TLSClientParameters();
+                	tlsClientParameters.setHostnameVerifier(hostnameVerifier);
+                	httpClient.setTlsClientParameters(tlsClientParameters);
                 }
                 HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
                 httpClientPolicy.setAllowChunking(false);
