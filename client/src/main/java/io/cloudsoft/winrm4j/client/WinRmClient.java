@@ -3,10 +3,7 @@ package io.cloudsoft.winrm4j.client;
 import java.io.IOException;
 import java.io.Writer;
 import java.math.BigDecimal;
-import java.net.ConnectException;
 import java.net.MalformedURLException;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -17,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.cxf.endpoint.Client;
+import org.apache.cxf.feature.AbstractFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,9 +40,6 @@ import io.cloudsoft.winrm4j.client.wsman.SignalResponse;
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
-import org.apache.cxf.endpoint.Client;
-import org.apache.cxf.frontend.ClientProxy;
-import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduitFactory;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
@@ -413,18 +409,7 @@ public class WinRmClient {
 //        JaxWsDynamicClientFactory dcf = JaxWsDynamicClientFactory.newInstance();
 //        Client client = dcf.createClient("people.wsdl", classLoader);
         winrm = service.getWinRmPort(
-                // * Adds WS-Addressing headers and uses the submission spec namespace
-                //   http://schemas.xmlsoap.org/ws/2004/08/addressing
-                newMemberSubmissionAddressingFeature());
-
-        Client client = ClientProxy.getClient(winrm);
-        ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
-
-        // when client.command is executed if doclit.bare is not set then this exception occurs:
-        // Unexpected element {http://schemas.microsoft.com/wbem/wsman/1/windows/shell}CommandResponse found.
-        // Expected {http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}CommandResponse
-        si.setProperty("soap.force.doclit.bare", true);
-//        si.setProperty("soap.no.validate.parts", true);
+                soapClientSetForceDoclitBare(), soapClientAsyncHttpConduitParameters(), newMemberSubmissionAddressingFeature());
 
         BindingProvider bp = (BindingProvider)winrm;
 
@@ -453,40 +438,6 @@ public class WinRmClient {
                 bp.getRequestContext().put("http.autoredirect", true);
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
 
-                AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
-
-                if (disableCertificateChecks) {
-                    TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                    tlsClientParameters.setDisableCNCheck(true);
-                    tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-
-                        }
-
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-
-                        }
-
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[0];
-                        }
-                    }});
-                    httpClient.setTlsClientParameters(tlsClientParameters);
-                }
-                if (hostnameVerifier != null) {
-                	TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                	tlsClientParameters.setHostnameVerifier(hostnameVerifier);
-                	httpClient.setTlsClientParameters(tlsClientParameters);
-                }
-                HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
-                httpClientPolicy.setAllowChunking(false);
-                httpClientPolicy.setReceiveTimeout(receiveTimeout);
-
-                httpClient.setClient(httpClientPolicy);
-                httpClient.getClient().setAutoRedirect(true);
                 break;
             default:
                 throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
@@ -541,6 +492,8 @@ public class WinRmClient {
         return winrm;
     }
 
+    // * Adds WS-Addressing headers and uses the submission spec namespace
+    //   http://schemas.xmlsoap.org/ws/2004/08/addressing
     // TODO
     private static WebServiceFeature newMemberSubmissionAddressingFeature() {
         /*
@@ -563,6 +516,66 @@ public class WinRmClient {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static WebServiceFeature soapClientSetForceDoclitBare() {
+        ////  when client.command is executed if doclit.bare is not set then this exception occurs:
+        ////  Unexpected element {http://schemas.microsoft.com/wbem/wsman/1/windows/shell}CommandResponse found.
+        ////  Expected {http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}CommandResponse
+        //  serviceInfo.setProperty("soap.force.doclit.bare", true);
+        //  serviceInfo.setProperty("soap.no.validate.parts", true);
+        return new AbstractFeature() {
+            @Override
+            public void initialize(Client client, Bus bus) {
+                client.getEndpoint().getEndpointInfo().getService().setProperty("soap.force.doclit.bare", true);
+                super.initialize(client, bus);
+            }
+        };
+    }
+
+    private WebServiceFeature soapClientAsyncHttpConduitParameters() {
+        return new AbstractFeature() {
+            @Override
+            public void initialize(Client client, Bus bus) {
+                AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+
+                if (disableCertificateChecks) {
+                    TLSClientParameters tlsClientParameters = new TLSClientParameters();
+                    tlsClientParameters.setDisableCNCheck(true);
+                    tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                        }
+
+                        @Override
+                        public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                        }
+
+                        @Override
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[0];
+                        }
+                    }});
+                    httpClient.setTlsClientParameters(tlsClientParameters);
+                }
+                HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+                httpClientPolicy.setAllowChunking(false);
+                httpClientPolicy.setReceiveTimeout(receiveTimeout);
+
+                httpClient.setClient(httpClientPolicy);
+                httpClient.getClient().setAutoRedirect(true);
+
+                if (hostnameVerifier != null) {
+                    TLSClientParameters tlsClientParameters = new TLSClientParameters();
+                    tlsClientParameters.setHostnameVerifier(hostnameVerifier);
+                    httpClient.setTlsClientParameters(tlsClientParameters);
+                }
+
+                super.initialize(client, bus);
+            }
+        };
     }
 
     public void disconnect() {
