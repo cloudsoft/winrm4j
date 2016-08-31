@@ -2,23 +2,19 @@ package io.cloudsoft.winrm4j.client;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.net.ConnectException;
 import java.net.MalformedURLException;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.TrustManager;
@@ -27,22 +23,17 @@ import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
 import javax.xml.ws.soap.SOAPFaultException;
+import javax.xml.ws.spi.Provider;
+import javax.xml.ws.spi.ServiceDelegate;
 
-import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
-import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
-import io.cloudsoft.winrm4j.client.wsman.DeleteResponse;
-import io.cloudsoft.winrm4j.client.wsman.Locale;
-import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
-import io.cloudsoft.winrm4j.client.wsman.OptionType;
-import io.cloudsoft.winrm4j.client.wsman.SelectorSetType;
-import io.cloudsoft.winrm4j.client.wsman.SelectorType;
-import io.cloudsoft.winrm4j.client.wsman.Signal;
-import io.cloudsoft.winrm4j.client.wsman.SignalResponse;
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
+import org.apache.cxf.feature.Feature;
 import org.apache.cxf.frontend.ClientProxy;
+import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
+import org.apache.cxf.jaxws.spi.ProviderImpl;
 import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduitFactory;
@@ -50,8 +41,8 @@ import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.addressing.AddressingProperties;
 import org.apache.cxf.ws.addressing.AttributedURIType;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
-import org.apache.cxf.ws.addressing.WSAddressingFeature;
 import org.apache.cxf.ws.addressing.VersionTransformer;
+import org.apache.cxf.ws.addressing.WSAddressingFeature;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
@@ -61,7 +52,11 @@ import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.NodeList;
 
+import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
 import io.cloudsoft.winrm4j.client.shell.CommandLine;
 import io.cloudsoft.winrm4j.client.shell.CommandStateType;
 import io.cloudsoft.winrm4j.client.shell.DesiredStreamType;
@@ -72,7 +67,15 @@ import io.cloudsoft.winrm4j.client.shell.ReceiveResponse;
 import io.cloudsoft.winrm4j.client.shell.Shell;
 import io.cloudsoft.winrm4j.client.shell.StreamType;
 import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
-import org.w3c.dom.NodeList;
+import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
+import io.cloudsoft.winrm4j.client.wsman.DeleteResponse;
+import io.cloudsoft.winrm4j.client.wsman.Locale;
+import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
+import io.cloudsoft.winrm4j.client.wsman.OptionType;
+import io.cloudsoft.winrm4j.client.wsman.SelectorSetType;
+import io.cloudsoft.winrm4j.client.wsman.SelectorType;
+import io.cloudsoft.winrm4j.client.wsman.Signal;
+import io.cloudsoft.winrm4j.client.wsman.SignalResponse;
 
 /**
  * TODO confirm if parallel commands can be called in parallel in one shell (probably not)!
@@ -278,7 +281,22 @@ public class WinRmClient {
     private void setActionToContext(BindingProvider bp, String action) {
         AttributedURIType attrUri = new AttributedURIType();
         attrUri.setValue(action);
-        ((AddressingProperties)bp.getRequestContext().get("javax.xml.ws.addressing.context")).setAction(attrUri);
+        AddressingProperties addrProps = getAddressingProperties(bp);
+        addrProps.setAction(attrUri);
+    }
+
+    private AddressingProperties getAddressingProperties(BindingProvider bp) {
+        String ADDR_CONTEXT = "javax.xml.ws.addressing.context";
+        Map<String, Object> reqContext = bp.getRequestContext();
+        if (reqContext==null) {
+            throw new NullPointerException("Unable to load request context; delegate load failed");
+        }
+        
+        AddressingProperties addrProps = ((AddressingProperties)reqContext.get(ADDR_CONTEXT));
+        if (addrProps==null) {
+            throw new NullPointerException("Unable to load request context "+ADDR_CONTEXT+"; are the addressing classes installed (you may need <feature>cxf-ws-addr</feature> if running in osgi)");
+        }
+        return addrProps;
     }
 
     private void releaseCommand(String commandId) {
@@ -408,8 +426,146 @@ public class WinRmClient {
 
     private synchronized WinRm createService() {
         if (winrm != null) return winrm;
+    
+        RuntimeException lastException = null;
+        
+        try {
+            winrm = null;
+            doCreateServiceWithBean();
+            return winrm;
+        } catch (RuntimeException e) {
+            LOG.warn("Error creating WinRm service with mbean strategy (trying other strategies): "+e, e);
+            lastException = e;
+        }
+        
+        /*
+         * It's tedious getting the right Provider esp in OSGi.
+         * 
+         * We've tried a bunch of strategies, with the most promising tried here,
+         * and detailed notes below.
+         */
+        
+        try {
+            winrm = null;
+            doCreateServiceWithReflectivelySetDelegate();
+            getAddressingProperties((BindingProvider) winrm);
+            return winrm;
+        } catch (RuntimeException e) {
+            LOG.warn("Error creating WinRm service with reflective delegate (trying other strategies): "+e, e);
+            lastException = e;
+        }
+        
+        try {
+            winrm = null;
+            doCreateServiceNormal();
+            return winrm;
+        } catch (RuntimeException e) {
+            LOG.warn("Error creating WinRm service with many strategies (giving up): "+e, e);
+            lastException = e;
+        }
+        
+        throw lastException;
 
-        WinRmService service = new WinRmService();
+        // works, but addressing context might be null
+//        doCreateServiceWithReflectivelySetDelegate();
+        
+        // fails with NPE setting up feature (Bus is null)
+        // but it works if you install into karaf:  <feature>cxf-ws-addr</feature>
+//        doCreateServiceWithBean();
+        // also fails with NPE without that feature installed; untested with it
+//        doCreateServiceInSpecialClassLoader( ProviderImpl.class.getClassLoader() );
+//        doCreateServiceInSpecialClassLoader( JaxWsProxyFactoryBean.class.getClassLoader() );
+        
+        // fails in OSGi with CNF error when FactoryFinder tries to load the CXF impl 
+//        doCreateServiceWithSystemPropertySet();
+        
+        // fails in OSGi, with original error:
+        // com.sun.xml.internal.ws.client.sei.SEIStub cannot be cast to org.apache.cxf.frontend.ClientProxy
+        // at: ClientProxy.getClient(...);
+//        doCreateServiceNormal();
+//        doCreateServiceInSpecialClassLoader( WinRmClient.class.getClassLoader() );
+    }
+    
+    // normal approach
+    private synchronized void doCreateServiceNormal() {
+        WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
+        Client client = doCreateService_2_GetClient(service);
+        doCreateService_3_InitializeClientAndService(client);
+    }
+
+    //  sys prop approach
+    private void doCreateServiceWithSystemPropertySet() {
+        System.setProperty("javax.xml.ws.spi.Provider", ProviderImpl.class.getName());
+        doCreateServiceNormal();
+    }
+    
+    // force delegate
+    // based on http://stackoverflow.com/a/31892206/109079
+    private void doCreateServiceWithReflectivelySetDelegate() {
+        WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
+
+        try {
+            Field delegateField = javax.xml.ws.Service.class.getDeclaredField("delegate"); //ALLOW CXF SPECIFIC SERVICE DELEGATE ONLY!
+            delegateField.setAccessible(true);
+            ServiceDelegate previousDelegate = (ServiceDelegate) delegateField.get(service);
+            if (!previousDelegate.getClass().getName().contains("cxf")) {
+                ServiceDelegate serviceDelegate = ((Provider) Class.forName("org.apache.cxf.jaxws.spi.ProviderImpl").newInstance())
+                        .createServiceDelegate(WinRmService.WSDL_LOCATION, WinRmService.SERVICE, service.getClass());
+                delegateField.set(service, serviceDelegate);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error reflectively setting CXF WS service delegate", e);
+        }
+        Client client = doCreateService_2_GetClient(service);
+        doCreateService_3_InitializeClientAndService(client);
+    }
+    
+    // approach using JaxWsProxyFactoryBean
+    
+    private synchronized void doCreateServiceWithBean() {
+        Client client = doCreateServiceWithBean_Part1();
+        doCreateService_3_InitializeClientAndService(client);
+    }
+    
+    private synchronized Client doCreateServiceWithBean_Part1() {
+        JaxWsProxyFactoryBean factory = new JaxWsProxyFactoryBean();
+        factory.getClientFactoryBean().getServiceFactory().setWsdlURL(WinRmService.WSDL_LOCATION);
+        factory.setServiceName(WinRmService.SERVICE);
+        factory.setEndpointName(WinRmService.WinRmPort);
+        factory.setFeatures(Arrays.asList((Feature)newMemberSubmissionAddressingFeature()));        
+        winrm = factory.create(WinRm.class);
+        
+        return ClientProxy.getClient(winrm);
+    }
+
+    
+    // approach using CCL
+
+    private synchronized void doCreateServiceInSpecialClassLoader(ClassLoader cl) {
+        
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        
+        Client client;
+        try {
+            // use CXF classloader in order to avoid errors in osgi
+            // as described at http://stackoverflow.com/questions/24289151/eclipse-rcp-and-apache-cxf
+            // do this for as short a time as possible to prevent other potential issues
+            Thread.currentThread().setContextClassLoader(cl);
+            
+            WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
+            client = doCreateService_2_GetClient(service);
+            
+        } finally {
+            Thread.currentThread().setContextClassLoader(classLoader);
+        }
+        
+        doCreateService_3_InitializeClientAndService(client);
+    }
+        
+    private synchronized WinRmService doCreateService_1_CreateMinimalServiceInstance() {
+        return new WinRmService();
+    }
+    private synchronized Client doCreateService_2_GetClient(WinRmService service) {
 //        JaxWsDynamicClientFactory dcf = JaxWsDynamicClientFactory.newInstance();
 //        Client client = dcf.createClient("people.wsdl", classLoader);
         winrm = service.getWinRmPort(
@@ -417,9 +573,12 @@ public class WinRmClient {
                 //   http://schemas.xmlsoap.org/ws/2004/08/addressing
                 newMemberSubmissionAddressingFeature());
 
-        Client client = ClientProxy.getClient(winrm);
+        return ClientProxy.getClient(winrm);
+    }
+    
+    private synchronized void doCreateService_3_InitializeClientAndService(Client client) {
         ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
-
+        
         // when client.command is executed if doclit.bare is not set then this exception occurs:
         // Unexpected element {http://schemas.microsoft.com/wbem/wsman/1/windows/shell}CommandResponse found.
         // Expected {http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}CommandResponse
@@ -537,8 +696,6 @@ public class WinRmClient {
         sel.setName("ShellId");
         sel.getContent().add(shellId);
         shellSelector.getSelector().add(sel);
-
-        return winrm;
     }
 
     // TODO
