@@ -70,7 +70,8 @@
   <modules>
     <module>service</module>
     <module>client</module>
-    <module>winrm4j</module>
+      <module>winrm4j</module>
+      <module>cli</module>
   </modules>
 
 

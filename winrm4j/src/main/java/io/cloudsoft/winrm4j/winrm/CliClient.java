@@ -13,6 +13,7 @@ public class CliClient {
 
         if (args.length != 4) {
             System.out.println("Usage: CliClient <endpoing> <username> <password> <command>");
+            System.exit(1);
         }
 
         String endpoint = args[0];
