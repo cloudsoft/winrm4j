@@ -398,6 +398,13 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
 
     @Test(groups="Live")
     public void testToolConcurrentReuse() throws Exception {
+        // There are built-in retries at two levels in the code:
+        // * executePs will retry 10 times
+        // * each low-level WinRm command will retry 16 times
+        // * WinRm.delete is called in a finally, again retrying for 16 times
+        // As a result each executePs call could retry requests for a total of
+        // 10 x (16 + 16) = 320 times PER ITERATION
+        // That would result in 3200 failing requests for the tasks below!
         final int NUM_RUNS = 10;
         final int TIMEOUT_MINS = 30;
         final AtomicInteger counter = new AtomicInteger();
