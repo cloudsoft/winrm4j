@@ -13,7 +13,9 @@ import javax.xml.ws.RequestWrapper;
 
 import io.cloudsoft.winrm4j.service.shell.Receive;
 import io.cloudsoft.winrm4j.service.shell.ReceiveResponse;
+import io.cloudsoft.winrm4j.service.shell.Shell;
 import io.cloudsoft.winrm4j.service.shell.SignalResponse;
+import io.cloudsoft.winrm4j.service.transfer.ResourceCreated;
 import io.cloudsoft.winrm4j.service.wsman.Locale;
 import io.cloudsoft.winrm4j.service.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.service.wsman.SelectorSetType;
@@ -118,9 +120,9 @@ public class WinRm {
     @Action(input = "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create", output = "http://schemas.xmlsoap.org/ws/2004/09/transfer/CreateResponse")
     @WebResult(name = "ResourceCreated", targetNamespace = "http://schemas.xmlsoap.org/ws/2004/09/transfer", partName = "ResourceCreated")
     @SOAPBinding(parameterStyle = SOAPBinding.ParameterStyle.BARE)
-    public io.cloudsoft.winrm4j.service.transfer.ResourceCreated create(
-        @WebParam(name = "Shell", mode = WebParam.Mode.INOUT, targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
-        javax.xml.ws.Holder<io.cloudsoft.winrm4j.service.shell.Shell> shell,
+    public ResourceCreated create(
+        @WebParam(name = "Shell", targetNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell")
+        Shell shell,
         @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         String resourceURI,
         @WebParam(name = "MaxEnvelopeSize", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
