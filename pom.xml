@@ -130,6 +130,33 @@
           </archive>
         </configuration>
       </plugin>
+      <plugin>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>brooklyn-build-req</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <inherited>true</inherited>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>${java.version}.0</version>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.0.0,)</version>
+                </requireMavenVersion>
+                <dependencyConvergence/>
+              </rules>
+            </configuration>
+          </execution>
+      </executions>
+    </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
