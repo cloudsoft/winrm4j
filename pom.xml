@@ -61,10 +61,13 @@
     <includedTestGroups />
     <excludedTestGroups>Integration,Acceptance,Live,WIP</excludedTestGroups>
     <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
-    <surefire.version>2.18.1</surefire.version>
-    <testng.version>6.8.8</testng.version>
-    <guava.version>17.0</guava.version>
+    <surefire.version>2.19.1</surefire.version>
+    <testng.version>6.9.10</testng.version>
+    <guava.version>18.0</guava.version>
     <cxf.version>3.1.9</cxf.version>
+    <httpcomponents.httpcore.version>4.4.4</httpcomponents.httpcore.version>
+    <httpcomponents.httpasyncclient.version>4.1.2</httpcomponents.httpasyncclient.version>
+    <httpcomponents.httpclient.version>4.5.2</httpcomponents.httpclient.version>
     <mockwebserver.version>3.5.0</mockwebserver.version>
     <xmlunit.version>2.3.0</xmlunit.version>
   </properties>
