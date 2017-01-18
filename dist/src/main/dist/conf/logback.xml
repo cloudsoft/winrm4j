@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- to supply custom logging, either change this file, supply your own logback-main.xml 
+         (overriding the default provided on the classpath) or any of the files it references; 
+         see the Logging section of the Brooklyn web site for more information -->
+
+    <property name="logging.basename" scope="context" value="io.cloudsoft.winrm4j" />
+    <property name="logging.dir" scope="context" value="./" />
+
+    <include resource="logback-main.xml"/>
+    
+</configuration>
+
