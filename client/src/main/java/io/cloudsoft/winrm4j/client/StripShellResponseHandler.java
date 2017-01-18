@@ -22,9 +22,12 @@ public class StripShellResponseHandler implements SOAPHandler<SOAPMessageContext
             if ("Create".equals(action.getLocalPart())) {
                 Iterator<?> childIter = getBodyChildren(context);
                 while(childIter.hasNext()) {
-                    SOAPElement el = (SOAPElement) childIter.next();
-                    if ("Shell".equals(el.getLocalName())) {
-                        childIter.remove();
+                    Object node = childIter.next();
+                    if (node instanceof SOAPElement) {
+                        SOAPElement el = (SOAPElement) node;
+                        if ("Shell".equals(el.getLocalName())) {
+                            childIter.remove();
+                        }
                     }
                 }
             }
