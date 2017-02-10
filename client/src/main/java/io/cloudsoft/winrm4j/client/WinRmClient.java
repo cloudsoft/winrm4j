@@ -50,6 +50,7 @@ import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.BasicSchemeFactory;
+import org.apache.http.impl.auth.CredSspSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.slf4j.Logger;
@@ -598,55 +599,27 @@ public class WinRmClient {
                 bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
                 break;
-            case AuthSchemes.NTLM: case AuthSchemes.KERBEROS:
-                Credentials creds = new NTCredentials(username, password, null, domain);
-
-                Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-                        .register(AuthSchemes.BASIC, new BasicSchemeFactory())
-                        .register(AuthSchemes.SPNEGO,
-                                authenticationScheme.equals(AuthSchemes.NTLM) ? new SpNegoNTLMSchemeFactory() : new SPNegoSchemeFactory())
-                        .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())//
-                        .build();
-
-                bp.getRequestContext().put(Credentials.class.getName(), creds);
-                bp.getRequestContext().put("http.autoredirect", true);
-                bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
-
-                AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
-
-                if (disableCertificateChecks) {
-                    TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                    tlsClientParameters.setDisableCNCheck(true);
-                    tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-
-                        }
-
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-
-                        }
-
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[0];
-                        }
-                    }});
-                    httpClient.setTlsClientParameters(tlsClientParameters);
-                }
-                if (hostnameVerifier != null) {
-                	TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                	tlsClientParameters.setHostnameVerifier(hostnameVerifier);
-                	httpClient.setTlsClientParameters(tlsClientParameters);
-                }
-                HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
-                httpClientPolicy.setAllowChunking(false);
-                httpClientPolicy.setReceiveTimeout(receiveTimeout);
-
-                httpClient.setClient(httpClientPolicy);
-                httpClient.getClient().setAutoRedirect(true);
+            case AuthSchemes.NTLM: case AuthSchemes.KERBEROS: 
+                
+            	Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+                .register(AuthSchemes.BASIC, new BasicSchemeFactory())
+                .register(AuthSchemes.SPNEGO,
+                        authenticationScheme.equals(AuthSchemes.NTLM) ? new SpNegoNTLMSchemeFactory() : new SPNegoSchemeFactory())
+                .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())//
+                .build();
+            	
+            	setupHttpClient(client, bp, authSchemeRegistry);
                 break;
+                
+            case AuthSchemes.CREDSSP:
+            	
+            	authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+                .register(AuthSchemes.CREDSSP, new CredSspSchemeFactory())
+                .build();
+            	
+            	setupHttpClient(client, bp, authSchemeRegistry);
+            	break;
+                
             default:
                 throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
         }
@@ -698,6 +671,49 @@ public class WinRmClient {
         shellSelector.getSelector().add(sel);
     }
 
+    private void setupHttpClient(Client client, BindingProvider bp, Registry<AuthSchemeProvider> authSchemeRegistry) {
+    	Credentials creds = new NTCredentials(username, password, null, domain);
+
+        bp.getRequestContext().put(Credentials.class.getName(), creds);
+        bp.getRequestContext().put("http.autoredirect", true);
+        bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
+
+        AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+
+        if (disableCertificateChecks) {
+            TLSClientParameters tlsClientParameters = new TLSClientParameters();
+            tlsClientParameters.setDisableCNCheck(true);
+            tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
+                @Override
+                public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+            }});
+            httpClient.setTlsClientParameters(tlsClientParameters);
+        }
+        if (hostnameVerifier != null) {
+        	TLSClientParameters tlsClientParameters = new TLSClientParameters();
+        	tlsClientParameters.setHostnameVerifier(hostnameVerifier);
+        	httpClient.setTlsClientParameters(tlsClientParameters);
+        }
+        HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+        httpClientPolicy.setAllowChunking(false);
+        httpClientPolicy.setReceiveTimeout(receiveTimeout);
+
+        httpClient.setClient(httpClientPolicy);
+        httpClient.getClient().setAutoRedirect(true);
+    }
+    
     // TODO
     private static WebServiceFeature newMemberSubmissionAddressingFeature() {
         /*
