@@ -370,6 +370,24 @@
       but it should get you a long way there (and prevent maven faffing).
       If you don't deploy you can delete or ignore this (it has no effect unless you 
       enter -PRelease).
+
+      Add the following to your ~/.m2/settings.xml to be able to build without supplying
+      your gpg password on the command line:
+
+      <profiles>
+          <profile>
+              <id>gpg</id>
+              <properties>
+                  <gpg.executable>gpg2</gpg.executable>
+                  <gpg.useAgent>true</gpg.useAgent>
+                  <useAgent>true</useAgent>
+                  <gpg.useagent>true</gpg.useagent>
+              </properties>
+          </profile>
+      </profiles>
+      <activeProfiles>
+          <activeProfile>gpg</activeProfile>
+      </activeProfiles>
     -->
     <profile>
       <id>Release</id>
@@ -378,9 +396,6 @@
           <name>performRelease</name>
         </property>
       </activation>
-      <properties>
-        <gpg.passphrase />
-      </properties>
       <build>
         <plugins>
           <plugin>
