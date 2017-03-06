@@ -1,7 +1,5 @@
 package io.cloudsoft.winrm4j.client;
 
-import org.apache.cxf.bus.CXFBusFactory;
-
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 
@@ -15,7 +13,7 @@ public class CliClient {
 //        System.setProperty("com.sun.xml.internal.ws.transport.http.HttpAdapter.dumpTreshold", Integer.toString(Integer.MAX_VALUE));
 
         if (args.length != 4) {
-            System.out.println("Usage: CliClient <endpoing> <username> <password> <command>");
+            System.out.println("Usage: CliClient <endpoint> <username> <password> <command>");
         }
 
         String endpoint = args[0];
@@ -35,8 +33,6 @@ public class CliClient {
             exitCode = client.command(cmd, new PrintWriter(new OutputStreamWriter(System.out)), new PrintWriter(new OutputStreamWriter(System.err)));
         } finally {
             client.disconnect();
-
-            CXFBusFactory.clearDefaultBusForAnyThread(CXFBusFactory.getDefaultBus());
         }
         System.exit(exitCode);
     }

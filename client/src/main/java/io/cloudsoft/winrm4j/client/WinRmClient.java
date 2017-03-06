@@ -27,6 +27,7 @@ import javax.xml.ws.spi.Provider;
 import javax.xml.ws.spi.ServiceDelegate;
 
 import org.apache.cxf.Bus;
+import org.apache.cxf.Bus.BusState;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
@@ -36,7 +37,6 @@ import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.apache.cxf.jaxws.spi.ProviderImpl;
 import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
-import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduitFactory;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.addressing.AddressingProperties;
 import org.apache.cxf.ws.addressing.AttributedURIType;
@@ -112,6 +112,9 @@ public class WinRmClient {
     private Integer retriesForConnectionFailures;
     private Map<String, String> environment;
 
+    private WinRmClientContext context;
+    private boolean cleanupContext;
+
     private WinRm winrm;
     private String shellId;
     private SelectorSetType shellSelector;
@@ -121,6 +124,7 @@ public class WinRmClient {
     private boolean disableCertificateChecks;
     private HostnameVerifier hostnameVerifier;
 
+    
     public static Builder builder(URL endpoint) {
         return new Builder(endpoint, AuthSchemes.NTLM);
     }
@@ -141,6 +145,7 @@ public class WinRmClient {
         private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
         public static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
         private WinRmClient client;
+
         public Builder(URL endpoint, String authenticationScheme) {
             client = new WinRmClient(endpoint, authenticationScheme);
         }
@@ -203,6 +208,11 @@ public class WinRmClient {
         	return this;
         }
 
+        public Builder context(WinRmClientContext context) {
+            client.context = context;
+            return this;
+        }
+
         public WinRmClient build() {
             if (client.locale == null) {
                 locale(DEFAULT_LOCALE);
@@ -233,14 +243,6 @@ public class WinRmClient {
     private WinRmClient(URL endpoint, String authenticationScheme) {
         this.authenticationScheme = authenticationScheme != null ? authenticationScheme : AuthSchemes.NTLM;
         this.endpoint = endpoint;
-
-        if (!this.authenticationScheme.equals(AuthSchemes.BASIC)) {
-            // TODO consider using async client for Basic authentication
-            // Needed to be async according to http://cxf.apache.org/docs/asynchronous-client-http-transport.html
-            Bus bus = BusFactory.getDefaultBus();
-            bus.getProperties().put(AsyncHTTPConduit.USE_ASYNC, Boolean.TRUE);
-            bus.getProperties().put(AsyncHTTPConduitFactory.USE_POLICY, "ALWAYS");
-        }
     }
 
     public int command(String cmd, Writer out, Writer err) {
@@ -416,11 +418,27 @@ public class WinRmClient {
         }
     }
 
-    private WinRm getService() {
+    private synchronized WinRm getService() {
         if (winrm != null) {
             return winrm;
         } else {
-            return createService();
+
+            if (context != null) {
+                cleanupContext = false;
+            } else {
+                context = WinRmClientContext.newInstance();
+                cleanupContext = true;
+            }
+
+            Bus prevBus = BusFactory.getAndSetThreadDefaultBus(context.getBus());
+            try {
+                // The default thread bus is set on the ClientImpl and used for further requests
+                return createService();
+            } finally {
+                if (BusFactory.getThreadDefaultBus(false) != prevBus) {
+                    BusFactory.setThreadDefaultBus(prevBus);
+                }
+            }
         }
     }
 
@@ -494,6 +512,7 @@ public class WinRmClient {
     }
 
     //  sys prop approach
+    @SuppressWarnings("unused")
     private void doCreateServiceWithSystemPropertySet() {
         System.setProperty("javax.xml.ws.spi.Provider", ProviderImpl.class.getName());
         doCreateServiceNormal();
@@ -532,7 +551,8 @@ public class WinRmClient {
         factory.getClientFactoryBean().getServiceFactory().setWsdlURL(WinRmService.WSDL_LOCATION);
         factory.setServiceName(WinRmService.SERVICE);
         factory.setEndpointName(WinRmService.WinRmPort);
-        factory.setFeatures(Arrays.asList((Feature)newMemberSubmissionAddressingFeature()));        
+        factory.setFeatures(Arrays.asList((Feature)newMemberSubmissionAddressingFeature()));
+        factory.setBus(context.getBus());
         winrm = factory.create(WinRm.class);
         
         return ClientProxy.getClient(winrm);
@@ -541,6 +561,7 @@ public class WinRmClient {
     
     // approach using CCL
 
+    @SuppressWarnings("unused")
     private synchronized void doCreateServiceInSpecialClassLoader(ClassLoader cl) {
         
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -681,7 +702,7 @@ public class WinRmClient {
         optSetCreate.getOption().add(optCodepage);
 
         final Holder<Shell> holder = new Holder<>(shell);
-        ResourceCreated resourceCreated = winrmCallRetryConnFailure(new CallableFunction<ResourceCreated>() {
+        winrmCallRetryConnFailure(new CallableFunction<ResourceCreated>() {
             @Override
             public ResourceCreated call() {
                 //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
@@ -723,18 +744,28 @@ public class WinRmClient {
     }
 
     public void disconnect() {
-        if (winrm != null && shellSelector != null) {
-            try {
-                winrmCallRetryConnFailure(new CallableFunction<DeleteResponse>() {
-                    @Override
-                    public DeleteResponse call() {
-                        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-                        setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
-                        return winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
-                    }
-                });
-            } catch (SOAPFaultException soapFault) {
-                assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
+        if (context == null) return;
+        boolean isBusRunning = context.getBus().getState() != BusState.SHUTDOWN;
+        if (!isBusRunning) return;
+        try {
+            if (winrm != null && shellSelector != null) {
+                try {
+                    winrmCallRetryConnFailure(new CallableFunction<DeleteResponse>() {
+                        @Override
+                        public DeleteResponse call() {
+                            //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
+                            setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
+                            return winrm.delete(null, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+                        }
+                    });
+                } catch (SOAPFaultException soapFault) {
+                    assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
+                }
+            }
+        } finally {
+            if (cleanupContext) {
+                context.getBus().shutdown(true);
+                context = null;
             }
         }
     }

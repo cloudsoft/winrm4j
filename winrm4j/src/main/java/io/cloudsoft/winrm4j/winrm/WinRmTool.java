@@ -4,15 +4,17 @@ import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.HostnameVerifier;
 
-import io.cloudsoft.winrm4j.client.WinRmClient;
 import org.apache.http.client.config.AuthSchemes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.cloudsoft.winrm4j.client.WinRmClient;
+import io.cloudsoft.winrm4j.client.WinRmClientContext;
 
 /**
  * Tool for executing commands over WinRM.
@@ -35,7 +37,8 @@ public class WinRmTool {
     private final boolean disableCertificateChecks;
     private final String workingDirectory;
     private final Map<String, String> environment;
-    private HostnameVerifier hostnameVerifier;
+    private final HostnameVerifier hostnameVerifier;
+    private final WinRmClientContext context;
 
     public static class Builder {
         private String authenticationScheme = AuthSchemes.NTLM;
@@ -49,6 +52,7 @@ public class WinRmTool {
         private String workingDirectory;
         private Map<String, String> environment;
         private HostnameVerifier hostnameVerifier;
+        private WinRmClientContext context;
 
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
@@ -99,9 +103,18 @@ public class WinRmTool {
             this.port = port;
             return this;
         }
+        
+        public Builder context(WinRmClientContext context) {
+            this.context = context;
+            return this;
+        }
 
         public WinRmTool build() {
-            return new WinRmTool(getEndpointUrl(address, useHttps, port), domain, username, password, authenticationScheme, disableCertificateChecks, workingDirectory, environment, hostnameVerifier);
+            return new WinRmTool(getEndpointUrl(address, useHttps, port),
+                    domain, username, password, authenticationScheme,
+                    disableCertificateChecks, workingDirectory,
+                    environment, hostnameVerifier,
+                    context);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -136,12 +149,11 @@ public class WinRmTool {
         }
     }
 
-    @Deprecated
-    public static WinRmTool connect(String address, String username, String password) {
-        return new WinRmTool(WinRmTool.Builder.getEndpointUrl(address, false, DEFAULT_WINRM_PORT), null, username, password, AuthSchemes.NTLM, false, null, null, null);
-    }
-
-    private WinRmTool(String address, String domain, String username, String password, String authenticationScheme, boolean disableCertificateChecks, String workingDirectory, Map<String, String> environment, HostnameVerifier hostnameVerifier) {
+    private WinRmTool(String address, String domain, String username,
+            String password, String authenticationScheme,
+            boolean disableCertificateChecks, String workingDirectory,
+            Map<String, String> environment, HostnameVerifier hostnameVerifier,
+            WinRmClientContext context) {
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
         this.domain = domain;
@@ -151,6 +163,7 @@ public class WinRmTool {
         this.workingDirectory = workingDirectory;
         this.environment = environment;
         this.hostnameVerifier = hostnameVerifier;
+        this.context = context;
     }
 
     /**
@@ -216,6 +229,9 @@ public class WinRmTool {
         }
         if (retriesForConnectionFailures != null) {
             builder.retriesForConnectionFailures(retriesForConnectionFailures);
+        }
+        if (context != null) {
+            builder.context(context);
         }
 
         WinRmClient client = builder.build();
@@ -309,4 +325,5 @@ public class WinRmTool {
         }
         return builder.toString();
     }
+
 }
