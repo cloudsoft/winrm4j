@@ -1,12 +1,13 @@
 package io.cloudsoft.winrm4j.winrm;
 
-import com.google.common.base.Stopwatch;
-import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.util.logging.Logger;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import org.testng.annotations.Test;
+
+import com.google.common.base.Stopwatch;
 
 public class WinRmToolOperationTimeoutLiveTest extends AbstractWinRmToolLiveTest {
     private static final Logger LOG = Logger.getLogger(WinRmToolExecLiveTest.class.getName());
@@ -41,7 +42,7 @@ public class WinRmToolOperationTimeoutLiveTest extends AbstractWinRmToolLiveTest
 
         assertEquals(response.getStdOut(), "Test Completed\n");
         assertEquals(response.getStdErr(), "");
-        assertEquals(response.getNumberOfReceiveCalls(), 4);
+        // TODO The test is time–dependent, also the only reason to have getNumberOfReceiveCalls. Can we assert the behaviour in another way?
+        assertTrue(response.getNumberOfReceiveCalls() >= 4);
     }
-
 }

@@ -14,7 +14,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.http.client.config.AuthSchemes;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Stopwatch;
@@ -23,6 +25,8 @@ import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+
+import io.cloudsoft.winrm4j.client.WinRmClientContext;
 
 /**
  * Tests execution of commands (batch and powershell) on Windows over WinRM.
@@ -46,19 +50,34 @@ public class AbstractWinRmToolLiveTest {
     protected static final String VM_USER = "Administrator";
     protected static final String VM_PASSWORD = "pa55w0rd";
 
+    private WinRmClientContext context;
+
     Callable<WinRmTool> WINRM_TOOL = new Callable<WinRmTool>() {
         @Override public WinRmTool call() throws Exception {
 //            return WinRmTool.connect(VM_HOST + ":" + VM_PORT, VM_USER, VM_PASSWORD);
             WinRmTool.Builder builder = WinRmTool.Builder.builder(VM_HOST, VM_USER, VM_PASSWORD);
             builder.setAuthenticationScheme(AuthSchemes.NTLM);
             builder.port(VM_PORT);
-            builder.useHttps(true);
+            builder.useHttps(VM_PORT != 5985);
             builder.disableCertificateChecks(true);
+            builder.context(context);
             return builder.build();
         }};
 
     protected ListeningExecutorService executor;
-    
+
+    @BeforeClass(alwaysRun = true)
+    public void initContext() {
+        this.context = WinRmClientContext.newInstance();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanupContext() {
+        if (this.context != null) {
+            this.context.shutdown();
+        }
+    }
+
     @BeforeMethod(alwaysRun=true)
     public void setUpClass() throws Exception {
         executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(MAX_EXECUTOR_THREADS));
