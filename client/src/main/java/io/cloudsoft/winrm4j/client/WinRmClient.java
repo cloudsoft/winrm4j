@@ -129,18 +129,40 @@ public class WinRmClient {
     private HostnameVerifier hostnameVerifier;
 
     
+    /**
+     * Create a WinRmClient builder
+     *
+     * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
+     */
     public static Builder builder(URL endpoint) {
         return new Builder(endpoint, AuthSchemes.NTLM);
     }
 
+    /**
+     * Create a WinRmClient builder
+     *
+     * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
+     */
     public static Builder builder(String endpoint) {
         return new Builder(endpoint, AuthSchemes.NTLM);
     }
 
+    /**
+     * Create a WinRmClient builder
+     *
+     * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
+     * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
+     */
     public static Builder builder(URL endpoint, String authenticationScheme) {
         return new Builder(endpoint, authenticationScheme);
     }
 
+    /**
+     * Create a WinRmClient builder
+     *
+     * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
+     * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
+     */
     public static Builder builder(String endpoint, String authenticationScheme) {
         return new Builder(endpoint, authenticationScheme);
     }
@@ -159,12 +181,20 @@ public class WinRmClient {
         public Builder credentials(String username, String password) {
             return credentials(null, username, password);
         }
+
+        /**
+         * Credentials to use for authentication
+         */
         public Builder credentials(String domain, String username, String password) {
             client.domain = domain;
             client.username = checkNotNull(username, "username");
             client.password = checkNotNull(password, "password");
             return this;
         }
+
+        /**
+         * @param locale The locale to run the process in
+         */
         public Builder locale(java.util.Locale locale) {
             Locale l = new Locale();
             l.setLang(checkNotNull(locale, "locale").toLanguageTag());
@@ -186,6 +216,10 @@ public class WinRmClient {
             return this;
         }
 
+        /**
+         * @param retriesConnectionFailures How many times to retry the command before giving up in case of failure (exception).
+         *        Default is 16.
+         */
         public Builder retriesForConnectionFailures(Integer retriesConnectionFailures) {
             if (retriesConnectionFailures < 1) {
                 throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
@@ -194,29 +228,57 @@ public class WinRmClient {
             return this;
         }
 
+
+        /**
+         * @param disableCertificateChecks Skip trusted certificate and domain (CN) checks.
+         *        Used when working with self-signed certificates. Use {@link #hostnameVerifier(HostnameVerifier)}
+         *        for a more precise white-listing of server certificates.
+         */
         public Builder disableCertificateChecks(boolean disableCertificateChecks) {
             client.disableCertificateChecks = disableCertificateChecks;
             return this;
         }
+
+        /**
+         * @param workingDirectory the working directory of the process
+         */
         public Builder workingDirectory(String workingDirectory) {
             client.workingDirectory = checkNotNull(workingDirectory, "workingDirectory");
             return this;
         }
+
+        /**
+         * @param environment variables to pass to the command
+         */
         public Builder environment(Map<String, String> environment) {
             client.environment = checkNotNull(environment, "environment");
             return this;
         }
-        
+
+        /**
+         * @param hostnameVerifier override the default HostnameVerifier allowing
+         *        users to add custom validation logic. Used when the default rules for URL
+         *        hostname verification fail. Use {@link #disableCertificateChecks(boolean)} to
+         *        disable certificate checks for all host names.
+         */
         public Builder hostnameVerifier(HostnameVerifier hostnameVerifier) {
-        	client.hostnameVerifier = hostnameVerifier;
-        	return this;
+            client.hostnameVerifier = hostnameVerifier;
+            return this;
         }
 
+        /**
+         * @param context is a shared {@link WinRmClientContext} object which allows connection
+         *        reuse across {@link WinRmClient} invocations. If not set one will be created
+         *        for each {@link WinRmClient} instance.
+         */
         public Builder context(WinRmClientContext context) {
             client.context = context;
             return this;
         }
 
+        /**
+         * Create a WinRmClient
+         */
         public WinRmClient build() {
             if (client.locale == null) {
                 locale(DEFAULT_LOCALE);

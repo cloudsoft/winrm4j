@@ -10,10 +10,6 @@ If you wish to build the binaries yourself, you can clone this project, and buil
 
 `mvn clean install`
 
-To build using the Apache CXF project tools use
-
-`mvn clean install -Djax-ws-cxf`
-
 
 ### Maven dependency
 
@@ -23,7 +19,7 @@ Add the following to your `pom.xml`:
 <dependency>
   <groupId>io.cloudsoft.windows</groupId>
   <artifactId>winrm4j</artifactId>
-  <version>0.3.2</version> <!-- WINRM4J_VERSION -->
+  <version>0.5.0</version> <!-- WINRM4J_VERSION -->
 </dependency>
 ```
 
@@ -42,24 +38,32 @@ To use winrm4j in Java code, you first create a `WinRmTool` object via the stati
 A `WinRmTool` instance supports the basic `executeCommand(String)` method which executes windows native commands.
 Through `executeCommand(String)` method supports:
 
-* `executeCommand(List<String>)` executeList of commands concatenated with &
+* `executeCommand(List<String>)` execute a list of commands concatenated with &
 * `executePs(String)` execute a PowerShell command with the native windows command
-* `executePs(List<String>)` list of PowerShell commands
-
-It exposes the methods
-`executeScript` and `executePs`, which can be used to execute batch or PowerShell statements respectively.
+* `executePs(List<String>)` execute a list of PowerShell commands
 
 ``` java
+WinRmClientContext context = WinRmClientContext.newInstance();
+
 WinRmTool.Builder builder = WinRmTool.Builder.builder("my.windows.server.com", "Administrator", "pa55w0rd!");
 builder.setAuthenticationScheme(AuthSchemes.NTLM);
 builder.port(5985);
 builder.useHttps(false);
+builder.context(context);
 WinRmTool tool =  builder.build();
+
+tool.executePs("echo hi");
+
+context.shutdown();
 ```
+
+### Contacts
+
+Commercial support for the library is provided as part of [Cloudsoft AMP](https://cloudsoft.io/products/). See the [contacts page](https://cloudsoft.io/support) for the various ways to contact us.
 
 ### License
 
-Copyright 2015-2016 by Cloudsoft Corporation Limited
+Copyright 2015-2017 by Cloudsoft Corporation Limited
 
 > Licensed under the Apache License, Version 2.0 (the "License");
 > you may not use this file except in compliance with the License.
