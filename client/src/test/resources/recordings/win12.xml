@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE recording [
+  <!ELEMENT recording (item*)>
+  <!ELEMENT item (request, response)>
+  <!ELEMENT request ANY>
+  <!ATTLIST request action CDATA #REQUIRED>
+  <!ELEMENT response ANY>
+]>
+<recording>
+  <item>
+    <request action="http://schemas.xmlsoap.org/ws/2004/09/transfer/Create">
+      <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+          <Action xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">http://schemas.xmlsoap.org/ws/2004/09/transfer/Create</Action>
+          <MessageID xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${messageId}</MessageID>
+          <To xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${serviceUrl}</To>
+          <ReplyTo xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            <Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</Address>
+          </ReplyTo>
+          <ns2:ResourceURI
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</ns2:ResourceURI>
+          <ns2:MaxEnvelopeSize
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >153600</ns2:MaxEnvelopeSize>
+          <ns2:OperationTimeout
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >PT60S</ns2:OperationTimeout>
+          <ns2:Locale
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+              xml:lang="en-US" />
+          <ns2:OptionSet
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns2:Option Name="WINRS_NOPROFILE">FALSE</ns2:Option>
+            <ns2:Option Name="WINRS_CODEPAGE">437</ns2:Option>
+          </ns2:OptionSet>
+        </soap:Header>
+        <soap:Body>
+          <ns1:Shell
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns1:InputStreams>stdin</ns1:InputStreams>
+            <ns1:OutputStreams>stdout stderr</ns1:OutputStreams>
+          </ns1:Shell>
+        </soap:Body>
+      </soap:Envelope>
+    </request>
+    <response>
+      <s:Envelope
+          xml:lang="en-US"
+          xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+          xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+          xmlns:x="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+          xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+          xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+          xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd">
+        <s:Header>
+          <a:Action>http://schemas.xmlsoap.org/ws/2004/09/transfer/CreateResponse</a:Action>
+          <a:MessageID>uuid:C008686A-510B-40D4-9ADA-36AB4545DDBE</a:MessageID>
+          <a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>
+          <a:RelatesTo>${messageId}</a:RelatesTo>
+        </s:Header>
+        <s:Body>
+          <x:ResourceCreated>
+            <a:Address>${serviceUrl}</a:Address>
+            <a:ReferenceParameters>
+              <w:ResourceURI>http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</w:ResourceURI>
+              <w:SelectorSet>
+                <w:Selector Name="ShellId">AF161CE1-3D3F-46B7-A101-800DD70639A9</w:Selector>
+              </w:SelectorSet>
+            </a:ReferenceParameters>
+          </x:ResourceCreated>
+          <rsp:Shell xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">
+            <rsp:ShellId>AF161CE1-3D3F-46B7-A101-800DD70639A9</rsp:ShellId>
+            <rsp:ResourceUri>http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</rsp:ResourceUri>
+            <rsp:Owner>WIN-9CCKIUF3APV\vagrant</rsp:Owner>
+            <rsp:ClientIP>172.28.128.1</rsp:ClientIP>
+            <rsp:IdleTimeOut>PT7200.000S</rsp:IdleTimeOut>
+            <rsp:InputStreams>stdin</rsp:InputStreams>
+            <rsp:OutputStreams>stdout stderr</rsp:OutputStreams>
+            <rsp:ShellRunTime>P0DT0H0M0S</rsp:ShellRunTime>
+            <rsp:ShellInactivity>P0DT0H0M0S</rsp:ShellInactivity>
+          </rsp:Shell>
+        </s:Body>
+      </s:Envelope>
+    </response>
+  </item>
+  <item>
+    <request action="http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command">
+      <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+          <Action xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command</Action>
+          <MessageID xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${messageId}</MessageID>
+          <To xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${serviceUrl}</To>
+          <ReplyTo xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            <Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</Address>
+          </ReplyTo>
+          <ns2:ResourceURI
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</ns2:ResourceURI>
+          <ns2:MaxEnvelopeSize
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >153600</ns2:MaxEnvelopeSize>
+          <ns2:OperationTimeout
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >PT60S</ns2:OperationTimeout>
+          <ns2:Locale
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+              xml:lang="en-US" />
+          <ns2:SelectorSet
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns2:Selector Name="ShellId">AF161CE1-3D3F-46B7-A101-800DD70639A9</ns2:Selector>
+          </ns2:SelectorSet>
+          <ns2:OptionSet
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns2:Option Name="WINRS_CONSOLEMODE_STDIN">TRUE</ns2:Option>
+            <ns2:Option Name="WINRS_SKIP_CMD_SHELL">FALSE</ns2:Option>
+          </ns2:OptionSet>
+        </soap:Header>
+        <soap:Body>
+          <ns1:CommandLine
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns1:Command>echo myline</ns1:Command>
+          </ns1:CommandLine>
+        </soap:Body>
+      </soap:Envelope>
+    </request>
+    <response>
+      <s:Envelope
+          xml:lang="en-US"
+          xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+          xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+          xmlns:x="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+          xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+          xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+          xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd">
+        <s:Header>
+          <a:Action>http://schemas.microsoft.com/wbem/wsman/1/windows/shell/CommandResponse</a:Action>
+          <a:MessageID>uuid:C70FD6D6-477E-4840-83FD-E927A7BA2C12</a:MessageID>
+          <a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>
+          <a:RelatesTo>${messageId}</a:RelatesTo>
+        </s:Header>
+        <s:Body>
+          <rsp:CommandResponse>
+            <rsp:CommandId>D6BF85B4-E0D0-4770-9330-F5474E967185</rsp:CommandId>
+          </rsp:CommandResponse>
+        </s:Body>
+      </s:Envelope>
+    </response>
+  </item>
+  <item>
+    <request action="http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive">
+      <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+          <Action xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive</Action>
+          <MessageID xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${messageId}</MessageID>
+          <To xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${serviceUrl}</To>
+          <ReplyTo xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            <Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</Address>
+          </ReplyTo>
+          <ns2:ResourceURI
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</ns2:ResourceURI>
+          <ns2:MaxEnvelopeSize
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >153600</ns2:MaxEnvelopeSize>
+          <ns2:OperationTimeout
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >PT60S</ns2:OperationTimeout>
+          <ns2:Locale
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+              xml:lang="en-US" />
+          <ns2:SelectorSet
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns2:Selector Name="ShellId">AF161CE1-3D3F-46B7-A101-800DD70639A9</ns2:Selector>
+          </ns2:SelectorSet>
+        </soap:Header>
+        <soap:Body>
+          <ns1:Receive
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns1:DesiredStream ns1:CommandId="D6BF85B4-E0D0-4770-9330-F5474E967185">stdout stderr</ns1:DesiredStream>
+          </ns1:Receive>
+        </soap:Body>
+      </soap:Envelope>
+    </request>
+    <response>
+      <s:Envelope
+          xml:lang="en-US"
+          xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+          xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+          xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+          xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+          xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd">
+        <s:Header>
+          <a:Action>http://schemas.microsoft.com/wbem/wsman/1/windows/shell/ReceiveResponse</a:Action>
+          <a:MessageID>uuid:74A21DFC-D336-447D-8B4A-100973D77157</a:MessageID>
+          <a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>
+          <a:RelatesTo>${messageId}</a:RelatesTo>
+        </s:Header>
+        <s:Body>
+          <rsp:ReceiveResponse>
+            <rsp:Stream Name="stdout" CommandId="D6BF85B4-E0D0-4770-9330-F5474E967185">bXlsaW5lDQo=</rsp:Stream>
+            <rsp:Stream Name="stdout" CommandId="D6BF85B4-E0D0-4770-9330-F5474E967185" End="true" />
+            <rsp:Stream Name="stderr" CommandId="D6BF85B4-E0D0-4770-9330-F5474E967185" End="true" />
+            <rsp:CommandState
+                CommandId="D6BF85B4-E0D0-4770-9330-F5474E967185"
+                State="http://schemas.microsoft.com/wbem/wsman/1/windows/shell/CommandState/Done">
+              <rsp:ExitCode>0</rsp:ExitCode>
+            </rsp:CommandState>
+          </rsp:ReceiveResponse>
+        </s:Body>
+      </s:Envelope>
+    </response>
+  </item>
+  <item>
+    <request action="http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal">
+      <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+          <Action xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal</Action>
+          <MessageID xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${messageId}</MessageID>
+          <To xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${serviceUrl}</To>
+          <ReplyTo xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            <Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</Address>
+          </ReplyTo>
+          <ns2:ResourceURI
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</ns2:ResourceURI>
+          <ns2:MaxEnvelopeSize
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >153600</ns2:MaxEnvelopeSize>
+          <ns2:OperationTimeout
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >PT60S</ns2:OperationTimeout>
+          <ns2:Locale
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+              xml:lang="en-US" />
+          <ns2:SelectorSet
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns2:Selector Name="ShellId">AF161CE1-3D3F-46B7-A101-800DD70639A9</ns2:Selector>
+          </ns2:SelectorSet>
+        </soap:Header>
+        <soap:Body>
+          <ns1:Signal
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+              CommandId="D6BF85B4-E0D0-4770-9330-F5474E967185">
+            <ns1:Code>http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/terminate</ns1:Code>
+          </ns1:Signal>
+        </soap:Body>
+      </soap:Envelope>
+    </request>
+    <response>
+      <s:Envelope
+          xml:lang="en-US"
+          xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+          xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+          xmlns:x="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+          xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+          xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+          xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd">
+        <s:Header>
+          <a:Action>http://schemas.microsoft.com/wbem/wsman/1/windows/shell/SignalResponse</a:Action>
+          <a:MessageID>uuid:62D17943-1D1E-43DA-900A-8ED1059C26B5</a:MessageID>
+          <a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>
+          <a:RelatesTo>${messageId}</a:RelatesTo>
+        </s:Header>
+        <s:Body>
+          <rsp:SignalResponse />
+        </s:Body>
+      </s:Envelope>
+    </response>
+  </item>
+  <item>
+    <request action="http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete">
+      <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+          <Action xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete</Action>
+          <MessageID xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${messageId}</MessageID>
+          <To xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">${serviceUrl}</To>
+          <ReplyTo xmlns="http://schemas.xmlsoap.org/ws/2004/08/addressing">
+            <Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</Address>
+          </ReplyTo>
+          <ns2:ResourceURI
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</ns2:ResourceURI>
+          <ns2:MaxEnvelopeSize
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >153600</ns2:MaxEnvelopeSize>
+          <ns2:OperationTimeout
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+            >PT60S</ns2:OperationTimeout>
+          <ns2:Locale
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer"
+              xml:lang="en-US" />
+          <ns2:SelectorSet
+              xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+              xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+              xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns2:Selector Name="ShellId">AF161CE1-3D3F-46B7-A101-800DD70639A9</ns2:Selector>
+          </ns2:SelectorSet>
+        </soap:Header>
+        <soap:Body />
+      </soap:Envelope>
+    </request>
+    <response>
+      <s:Envelope
+          xml:lang="en-US"
+          xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+          xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+          xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+          xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd">
+        <s:Header>
+          <a:Action>http://schemas.xmlsoap.org/ws/2004/09/transfer/DeleteResponse</a:Action>
+          <a:MessageID>uuid:1BFC3285-6F68-459E-B505-6EA3BF66B41D</a:MessageID>
+          <a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>
+          <a:RelatesTo>${messageId}</a:RelatesTo>
+        </s:Header>
+        <s:Body></s:Body>
+      </s:Envelope>
+    </response>
+  </item>
+</recording>

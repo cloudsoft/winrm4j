@@ -20,11 +20,14 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
-import javax.xml.ws.Holder;
 import javax.xml.ws.WebServiceFeature;
+import javax.xml.ws.handler.Handler;
 import javax.xml.ws.soap.SOAPFaultException;
 import javax.xml.ws.spi.Provider;
 import javax.xml.ws.spi.ServiceDelegate;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 import org.apache.cxf.Bus;
 import org.apache.cxf.Bus.BusState;
@@ -54,6 +57,7 @@ import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
@@ -607,6 +611,10 @@ public class WinRmClient {
 //        si.setProperty("soap.no.validate.parts", true);
 
         BindingProvider bp = (BindingProvider)winrm;
+        
+        @SuppressWarnings("rawtypes")
+        List<Handler> handlerChain = Arrays.<Handler>asList(new StripShellResponseHandler());
+        bp.getBinding().setHandlerChain(handlerChain);
 
         Map<String, Object> requestContext = bp.getRequestContext();
         AddressingProperties maps = new AddressingProperties(VersionTransformer.Names200408.WSA_NAMESPACE_NAME);
@@ -672,7 +680,7 @@ public class WinRmClient {
                 throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
         }
 
-        Shell shell = new Shell();
+        final Shell shell = new Shell();
         shell.getInputStreams().add("stdin");
         shell.getOutputStreams().add("stdout");
         shell.getOutputStreams().add("stderr");
@@ -701,22 +709,37 @@ public class WinRmClient {
         optCodepage.setValue("437");
         optSetCreate.getOption().add(optCodepage);
 
-        final Holder<Shell> holder = new Holder<>(shell);
-        winrmCallRetryConnFailure(new CallableFunction<ResourceCreated>() {
+        ResourceCreated resourceCreated = winrmCallRetryConnFailure(new CallableFunction<ResourceCreated>() {
             @Override
             public ResourceCreated call() {
                 //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
                 setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create");
-                return winrm.create(holder, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
+                return winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
             }
         });
-        shellId = holder.value.getShellId();
+        shellId = getShellId(resourceCreated);
 
         shellSelector = new SelectorSetType();
         SelectorType sel = new SelectorType();
         sel.setName("ShellId");
         sel.getContent().add(shellId);
         shellSelector.getSelector().add(sel);
+    }
+
+    private static String getShellId(ResourceCreated resourceCreated) {
+        XPath xpath = XPathFactory.newInstance().newXPath();
+        for (Element el : resourceCreated.getAny()) {
+            String shellId;
+            try {
+                shellId = xpath.evaluate("//*[local-name()='Selector' and @Name='ShellId']", el);
+            } catch (XPathExpressionException e) {
+                throw new IllegalStateException(e);
+            }
+            if (shellId != null && !shellId.isEmpty()) {
+                return shellId;
+            }
+        }
+        throw new IllegalStateException("Shell ID not fount in " + resourceCreated);
     }
 
     // TODO
