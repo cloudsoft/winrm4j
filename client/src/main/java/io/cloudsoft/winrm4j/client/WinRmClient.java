@@ -315,11 +315,8 @@ public class WinRmClient {
         return shellCommand.getNumberOfReceiveCalls();
     }
 
-    private synchronized WinRm initService() {
-        if (winrm != null) {
-            return winrm;
-        } else {
-
+    private synchronized void initService() {
+        if (winrm == null) {
             if (context != null) {
                 cleanupContext = false;
             } else {
@@ -327,27 +324,29 @@ public class WinRmClient {
                 cleanupContext = true;
             }
 
-            Bus prevBus = BusFactory.getAndSetThreadDefaultBus(context.getBus());
-            try {
-                // The default thread bus is set on the ClientImpl and used for further requests
-                return createService();
-            } finally {
-                if (BusFactory.getThreadDefaultBus(false) != prevBus) {
-                    BusFactory.setThreadDefaultBus(prevBus);
-                }
+            WinRm service = newInstance(context.getBus());
+            initializeClientAndService(service);
+            winrm = service;
+        }
+    }
+
+    public static WinRm newInstance(Bus bus) {
+        Bus prevBus = BusFactory.getAndSetThreadDefaultBus(bus);
+        try {
+            // The default thread bus is set on the ClientImpl and used for further requests
+            return createService(bus);
+        } finally {
+            if (BusFactory.getThreadDefaultBus(false) != prevBus) {
+                BusFactory.setThreadDefaultBus(prevBus);
             }
         }
     }
 
-    private synchronized WinRm createService() {
-        if (winrm != null) return winrm;
-    
+    private static WinRm createService(Bus bus) {
         RuntimeException lastException = null;
         
         try {
-            winrm = null;
-            doCreateServiceWithBean();
-            return winrm;
+            return doCreateServiceWithBean(bus);
         } catch (RuntimeException e) {
             LOG.warn("Error creating WinRm service with mbean strategy (trying other strategies): "+e, e);
             lastException = e;
@@ -361,19 +360,14 @@ public class WinRmClient {
          */
         
         try {
-            winrm = null;
-            doCreateServiceWithReflectivelySetDelegate();
-            getAddressingProperties((BindingProvider) winrm);
-            return winrm;
+            return doCreateServiceWithReflectivelySetDelegate();
         } catch (RuntimeException e) {
             LOG.warn("Error creating WinRm service with reflective delegate (trying other strategies): "+e, e);
             lastException = e;
         }
         
         try {
-            winrm = null;
-            doCreateServiceNormal();
-            return winrm;
+            return doCreateServiceNormal();
         } catch (RuntimeException e) {
             LOG.warn("Error creating WinRm service with many strategies (giving up): "+e, e);
             lastException = e;
@@ -402,10 +396,9 @@ public class WinRmClient {
     }
     
     // normal approach
-    private synchronized void doCreateServiceNormal() {
+    private static WinRm doCreateServiceNormal() {
         WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
-        Client client = doCreateService_2_GetClient(service);
-        doCreateService_3_InitializeClientAndService(client);
+        return doCreateService_2_GetClient(service);
     }
 
     //  sys prop approach
@@ -417,7 +410,7 @@ public class WinRmClient {
     
     // force delegate
     // based on http://stackoverflow.com/a/31892206/109079
-    private void doCreateServiceWithReflectivelySetDelegate() {
+    private static WinRm doCreateServiceWithReflectivelySetDelegate() {
         WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
 
         try {
@@ -432,34 +425,25 @@ public class WinRmClient {
         } catch (Exception e) {
             throw new RuntimeException("Error reflectively setting CXF WS service delegate", e);
         }
-        Client client = doCreateService_2_GetClient(service);
-        doCreateService_3_InitializeClientAndService(client);
+        return doCreateService_2_GetClient(service);
     }
     
     // approach using JaxWsProxyFactoryBean
     
-    private synchronized void doCreateServiceWithBean() {
-        Client client = doCreateServiceWithBean_Part1();
-        doCreateService_3_InitializeClientAndService(client);
-    }
-    
-    private synchronized Client doCreateServiceWithBean_Part1() {
+    private static WinRm doCreateServiceWithBean(Bus bus) {
         JaxWsProxyFactoryBean factory = new JaxWsProxyFactoryBean();
         factory.getClientFactoryBean().getServiceFactory().setWsdlURL(WinRmService.WSDL_LOCATION);
         factory.setServiceName(WinRmService.SERVICE);
         factory.setEndpointName(WinRmService.WinRmPort);
         factory.setFeatures(Arrays.asList((Feature)newMemberSubmissionAddressingFeature()));
-        factory.setBus(context.getBus());
-        winrm = factory.create(WinRm.class);
-        
-        return ClientProxy.getClient(winrm);
+        factory.setBus(bus);
+        return factory.create(WinRm.class);
     }
 
-    
     // approach using CCL
 
     @SuppressWarnings("unused")
-    private synchronized void doCreateServiceInSpecialClassLoader(ClassLoader cl) {
+    private static WinRm doCreateServiceInSpecialClassLoader(ClassLoader cl) {
         
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         
@@ -471,30 +455,26 @@ public class WinRmClient {
             Thread.currentThread().setContextClassLoader(cl);
             
             WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
-            client = doCreateService_2_GetClient(service);
+            return doCreateService_2_GetClient(service);
             
         } finally {
             Thread.currentThread().setContextClassLoader(classLoader);
         }
-        
-        doCreateService_3_InitializeClientAndService(client);
     }
         
-    private synchronized WinRmService doCreateService_1_CreateMinimalServiceInstance() {
+    private static WinRmService doCreateService_1_CreateMinimalServiceInstance() {
         return new WinRmService();
     }
-    private synchronized Client doCreateService_2_GetClient(WinRmService service) {
-//        JaxWsDynamicClientFactory dcf = JaxWsDynamicClientFactory.newInstance();
-//        Client client = dcf.createClient("people.wsdl", classLoader);
-        winrm = service.getWinRmPort(
+
+    private static WinRm doCreateService_2_GetClient(WinRmService service) {
+        return service.getWinRmPort(
                 // * Adds WS-Addressing headers and uses the submission spec namespace
                 //   http://schemas.xmlsoap.org/ws/2004/08/addressing
                 newMemberSubmissionAddressingFeature());
-
-        return ClientProxy.getClient(winrm);
     }
     
-    private synchronized void doCreateService_3_InitializeClientAndService(Client client) {
+    private void initializeClientAndService(WinRm winrm) {
+        Client client = ClientProxy.getClient(winrm);
         ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
         
         // when client.command is executed if doclit.bare is not set then this exception occurs:
