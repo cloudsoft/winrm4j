@@ -9,10 +9,8 @@ import javax.xml.ws.spi.ServiceDelegate;
 
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
-import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.feature.Feature;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
-import org.apache.cxf.jaxws.spi.ProviderImpl;
 import org.apache.cxf.ws.addressing.WSAddressingFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,70 +32,44 @@ public class WinRmFactory {
 
     private static WinRm createService(Bus bus) {
         RuntimeException lastException = null;
-        
+
         try {
             return doCreateServiceWithBean(bus);
         } catch (RuntimeException e) {
             LOG.warn("Error creating WinRm service with mbean strategy (trying other strategies): "+e, e);
             lastException = e;
         }
-        
+
         /*
          * It's tedious getting the right Provider esp in OSGi.
          * 
          * We've tried a bunch of strategies, with the most promising tried here,
          * and detailed notes below.
          */
-        
+
         try {
             return doCreateServiceWithReflectivelySetDelegate();
         } catch (RuntimeException e) {
             LOG.warn("Error creating WinRm service with reflective delegate (trying other strategies): "+e, e);
             lastException = e;
         }
-        
+
         try {
             return doCreateServiceNormal();
         } catch (RuntimeException e) {
             LOG.warn("Error creating WinRm service with many strategies (giving up): "+e, e);
             lastException = e;
         }
-        
-        throw lastException;
 
-        // works, but addressing context might be null
-//        doCreateServiceWithReflectivelySetDelegate();
-        
-        // fails with NPE setting up feature (Bus is null)
-        // but it works if you install into karaf:  <feature>cxf-ws-addr</feature>
-//        doCreateServiceWithBean();
-        // also fails with NPE without that feature installed; untested with it
-//        doCreateServiceInSpecialClassLoader( ProviderImpl.class.getClassLoader() );
-//        doCreateServiceInSpecialClassLoader( JaxWsProxyFactoryBean.class.getClassLoader() );
-        
-        // fails in OSGi with CNF error when FactoryFinder tries to load the CXF impl 
-//        doCreateServiceWithSystemPropertySet();
-        
-        // fails in OSGi, with original error:
-        // com.sun.xml.internal.ws.client.sei.SEIStub cannot be cast to org.apache.cxf.frontend.ClientProxy
-        // at: ClientProxy.getClient(...);
-//        doCreateServiceNormal();
-//        doCreateServiceInSpecialClassLoader( WinRmClient.class.getClassLoader() );
+        throw lastException;
     }
-    
+
     // normal approach
     private static WinRm doCreateServiceNormal() {
         WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
         return doCreateService_2_GetClient(service);
     }
 
-    //  sys prop approach
-    @SuppressWarnings("unused")
-    private void doCreateServiceWithSystemPropertySet() {
-        System.setProperty("javax.xml.ws.spi.Provider", ProviderImpl.class.getName());
-        doCreateServiceNormal();
-    }
-    
     // force delegate
     // based on http://stackoverflow.com/a/31892206/109079
     private static WinRm doCreateServiceWithReflectivelySetDelegate() {
@@ -130,28 +102,6 @@ public class WinRmFactory {
         return factory.create(WinRm.class);
     }
 
-    // approach using CCL
-
-    @SuppressWarnings("unused")
-    private static WinRm doCreateServiceInSpecialClassLoader(ClassLoader cl) {
-        
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        
-        Client client;
-        try {
-            // use CXF classloader in order to avoid errors in osgi
-            // as described at http://stackoverflow.com/questions/24289151/eclipse-rcp-and-apache-cxf
-            // do this for as short a time as possible to prevent other potential issues
-            Thread.currentThread().setContextClassLoader(cl);
-            
-            WinRmService service = doCreateService_1_CreateMinimalServiceInstance();
-            return doCreateService_2_GetClient(service);
-            
-        } finally {
-            Thread.currentThread().setContextClassLoader(classLoader);
-        }
-    }
-        
     private static WinRmService doCreateService_1_CreateMinimalServiceInstance() {
         return new WinRmService();
     }
