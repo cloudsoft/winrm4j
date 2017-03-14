@@ -3,7 +3,6 @@ package io.cloudsoft.winrm4j.client;
 import java.io.IOException;
 import java.io.Writer;
 import java.math.BigDecimal;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -87,8 +86,8 @@ public class WinRmClient {
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      */
-    public static Builder builder(URL endpoint) {
-        return new Builder(endpoint);
+    public static WinRmClientBuilder builder(URL endpoint) {
+        return new WinRmClientBuilder(endpoint);
     }
 
     /**
@@ -96,8 +95,8 @@ public class WinRmClient {
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      */
-    public static Builder builder(String endpoint) {
-        return new Builder(endpoint);
+    public static WinRmClientBuilder builder(String endpoint) {
+        return new WinRmClientBuilder(endpoint);
     }
 
     /**
@@ -126,29 +125,14 @@ public class WinRmClient {
         return new Builder(endpoint, authenticationScheme);
     }
 
-    public static class Builder {
-        private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
-
+    /**
+     * @deprecated since 0.6.0. Use {@link WinRmClientBuilder} instead.
+     */
+    @Deprecated
+    public static class Builder extends WinRmClientBuilder {
         /** @deprecated since 0.6.0; will change to private */
         @Deprecated
         public static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
-        private static final int DEFAULT_RETRIES_FOR_CONNECTION_FAILURES = 1;
-
-        private WinRmClientContext context;
-        private final URL endpoint;
-        private String authenticationScheme;
-        private String domain;
-        private String username;
-        private String password;
-        private String workingDirectory;
-        private Locale locale;
-        private long operationTimeout;
-        private Long receiveTimeout;
-        private int retriesForConnectionFailures;
-        private Map<String, String> environment;
-
-        private boolean disableCertificateChecks;
-        private HostnameVerifier hostnameVerifier;
 
         /** @deprecated since 0.6.0. Use {@link WinRmClient#builder(URL, String)} instead. */
         @Deprecated
@@ -159,141 +143,20 @@ public class WinRmClient {
 
         /** @deprecated since 0.6.0. Use {@link WinRmClient#builder(String, String)} instead. */
         public Builder(String endpoint, String authenticationScheme) {
-            this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")),
+            this(WinRmClientBuilder.toUrlUnchecked(checkNotNull(endpoint, "endpoint")),
                     checkNotNull(authenticationScheme, "authenticationScheme"));
         }
 
-        private Builder(String endpoint) {
-            this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")));
+        Builder(String endpoint) {
+            super(endpoint);
         }
 
-        private Builder(URL endpoint) {
-            this.endpoint = checkNotNull(endpoint, "endpoint");
-            authenticationScheme(AuthSchemes.NTLM);
-            locale(DEFAULT_LOCALE);
-            operationTimeout(DEFAULT_OPERATION_TIMEOUT);
-            retriesForConnectionFailures(DEFAULT_RETRIES_FOR_CONNECTION_FAILURES);
-        }
-
-        public Builder authenticationScheme(String authenticationScheme) {
-            this.authenticationScheme = checkNotNull(authenticationScheme, "authenticationScheme");
-            return this;
-        }
-
-        public Builder credentials(String username, String password) {
-            return credentials(null, username, password);
-        }
-
-        /**
-         * Credentials to use for authentication
-         */
-        public Builder credentials(String domain, String username, String password) {
-            this.domain = domain;
-            this.username = checkNotNull(username, "username");
-            this.password = checkNotNull(password, "password");
-            return this;
-        }
-
-        /**
-         * @param locale The locale to run the process in
-         */
-        public Builder locale(java.util.Locale locale) {
-            Locale l = new Locale();
-            l.setLang(checkNotNull(locale, "locale").toLanguageTag());
-            this.locale = l;
-            return this;
-        }
-
-        /**
-         * If operations cannot be completed in a specified time,
-         * the service returns a fault so that a client can comply with its obligations.
-         * http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.2.0.pdf
-         *
-         * @param operationTimeout in milliseconds
-         *                         default value {@link WinRmClient.Builder#DEFAULT_OPERATION_TIMEOUT}
-         */
-        public Builder operationTimeout(long operationTimeout) {
-            this.operationTimeout = checkNotNull(operationTimeout, "operationTimeout");
-            return this;
-        }
-
-        /**
-         * @param retriesConnectionFailures How many times to retry the command before giving up in case of failure (exception).
-         *        Default is 16.
-         */
-        public Builder retriesForConnectionFailures(int retriesConnectionFailures) {
-            if (retriesConnectionFailures < 1) {
-                throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
-            }
-            this.retriesForConnectionFailures = retriesConnectionFailures;
-            return this;
-        }
-
-
-        /**
-         * @param disableCertificateChecks Skip trusted certificate and domain (CN) checks.
-         *        Used when working with self-signed certificates. Use {@link #hostnameVerifier(HostnameVerifier)}
-         *        for a more precise white-listing of server certificates.
-         */
-        public Builder disableCertificateChecks(boolean disableCertificateChecks) {
-            this.disableCertificateChecks = disableCertificateChecks;
-            return this;
-        }
-
-        /**
-         * @param workingDirectory the working directory of the process
-         */
-        public Builder workingDirectory(String workingDirectory) {
-            this.workingDirectory = checkNotNull(workingDirectory, "workingDirectory");
-            return this;
-        }
-
-        /**
-         * @param environment variables to pass to the command
-         */
-        public Builder environment(Map<String, String> environment) {
-            this.environment = checkNotNull(environment, "environment");
-            return this;
-        }
-
-        /**
-         * @param hostnameVerifier override the default HostnameVerifier allowing
-         *        users to add custom validation logic. Used when the default rules for URL
-         *        hostname verification fail. Use {@link #disableCertificateChecks(boolean)} to
-         *        disable certificate checks for all host names.
-         */
-        public Builder hostnameVerifier(HostnameVerifier hostnameVerifier) {
-            this.hostnameVerifier = hostnameVerifier;
-            return this;
-        }
-
-        /**
-         * @param context is a shared {@link WinRmClientContext} object which allows connection
-         *        reuse across {@link WinRmClient} invocations. If not set one will be created
-         *        for each {@link WinRmClient} instance.
-         */
-        public Builder context(WinRmClientContext context) {
-            this.context = context;
-            return this;
-        }
-
-        /**
-         * Create a WinRmClient
-         */
-        public WinRmClient build() {
-            return new WinRmClient(this);
-        }
-
-        private static URL toUrlUnchecked(String endpoint) {
-            try {
-                return new URL(endpoint);
-            } catch (MalformedURLException e) {
-                throw new IllegalArgumentException(e);
-            }
+        Builder(URL endpoint) {
+            super(endpoint);
         }
     }
 
-    private WinRmClient(Builder builder) {
+    WinRmClient(WinRmClientBuilder builder) {
         this.workingDirectory = builder.workingDirectory;
         this.locale = builder.locale;
         this.operationTimeout = toDuration(builder.operationTimeout);
@@ -322,7 +185,7 @@ public class WinRmClient {
         this.operationTimeout = toDuration(timeout);
     }
 
-    public WinRm getService(Builder builder) {
+    private WinRm getService(WinRmClientBuilder builder) {
         WinRm service = WinRmFactory.newInstance(context.getBus());
         initializeClientAndService(service, builder);
         return service;
@@ -366,7 +229,7 @@ public class WinRmClient {
         return shellCommand.getNumberOfReceiveCalls();
     }
 
-    private static void initializeClientAndService(WinRm winrm, Builder builder) {
+    private static void initializeClientAndService(WinRm winrm, WinRmClientBuilder builder) {
         String endpoint = builder.endpoint.toExternalForm();
         String authenticationScheme = builder.authenticationScheme;
         String username = builder.username;
@@ -557,13 +420,6 @@ public class WinRmClient {
         return cmd;
     }
 
-    public static <T> T checkNotNull(T check, String msg) {
-        if (check == null) {
-            throw new NullPointerException(msg);
-        }
-        return check;
-    }
-
     private static long operationToReceiveTimeout(long operationTimeout) {
         return operationTimeout + 60l * 1000l;
     }
@@ -573,6 +429,13 @@ public class WinRmClient {
         BigDecimal bdSec = bdMs.divide(BigDecimal.valueOf(1000));
         DecimalFormat df = new DecimalFormat("PT#.###S", new DecimalFormatSymbols(java.util.Locale.ROOT));
         return df.format(bdSec);
+    }
+
+    public static <T> T checkNotNull(T check, String msg) {
+        if (check == null) {
+            throw new NullPointerException(msg);
+        }
+        return check;
     }
 
     static <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall, Integer retriesForConnectionFailures) throws SOAPFaultException {
