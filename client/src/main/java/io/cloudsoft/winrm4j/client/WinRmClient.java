@@ -59,7 +59,7 @@ import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.client.wsman.OptionType;
 
 /**
- * TODO confirm if parallel commands can be called in parallel in one shell (probably not)!
+ * TODO confirm if commands can be called in parallel in one shell (probably not)!
  */
 public class WinRmClient {
     private static final Logger LOG = LoggerFactory.getLogger(WinRmClient.class.getName());
@@ -67,37 +67,28 @@ public class WinRmClient {
     static final int MAX_ENVELOPER_SIZE = 153600;
     static final String RESOURCE_URI = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd";
 
-    private final String authenticationScheme;
-    private URL endpoint;
-    private String domain;
-    private String username;
-    private String password;
-    private String workingDirectory;
-    private Locale locale;
-    // Can be changed throughout object's lifetime
+    private final String workingDirectory;
+    private final Locale locale;
+    private final Map<String, String> environment;
+
+    // Can be changed throughout object's lifetime, but deprecated
     private String operationTimeout;
-    private Long receiveTimeout;
-    private Integer retriesForConnectionFailures;
-    private Map<String, String> environment;
+    private final int retriesForConnectionFailures;
 
-    private WinRmClientContext context;
-    private boolean cleanupContext;
+    private final WinRmClientContext context;
+    private final boolean cleanupContext;
 
-    private WinRm winrm;
-    private String shellId;
-
-    private boolean disableCertificateChecks;
-    private HostnameVerifier hostnameVerifier;
+    private final WinRm winrm;
 
     private ShellCommand shellCommand;
-    
+
     /**
      * Create a WinRmClient builder
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      */
     public static Builder builder(URL endpoint) {
-        return new Builder(endpoint, AuthSchemes.NTLM);
+        return new Builder(endpoint);
     }
 
     /**
@@ -106,7 +97,7 @@ public class WinRmClient {
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      */
     public static Builder builder(String endpoint) {
-        return new Builder(endpoint, AuthSchemes.NTLM);
+        return new Builder(endpoint);
     }
 
     /**
@@ -114,7 +105,10 @@ public class WinRmClient {
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
+     * 
+     * @deprecated since 0.6.0. Use {@link #builder(URL)} and {@link #authenticationScheme(String)}.
      */
+    @Deprecated
     public static Builder builder(URL endpoint, String authenticationScheme) {
         return new Builder(endpoint, authenticationScheme);
     }
@@ -124,22 +118,68 @@ public class WinRmClient {
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
+     * 
+     * @deprecated since 0.5.0. Use {@link #builder(String)} and {@link #authenticationScheme(String)}.
      */
+    @Deprecated
     public static Builder builder(String endpoint, String authenticationScheme) {
         return new Builder(endpoint, authenticationScheme);
     }
 
     public static class Builder {
         private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
-        public static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
-        private WinRmClient client;
 
+        /** @deprecated since 0.6.0; will change to private */
+        @Deprecated
+        public static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
+        private static final int DEFAULT_RETRIES_FOR_CONNECTION_FAILURES = 1;
+
+        private WinRmClientContext context;
+        private final URL endpoint;
+        private String authenticationScheme;
+        private String domain;
+        private String username;
+        private String password;
+        private String workingDirectory;
+        private Locale locale;
+        private long operationTimeout;
+        private Long receiveTimeout;
+        private int retriesForConnectionFailures;
+        private Map<String, String> environment;
+
+        private boolean disableCertificateChecks;
+        private HostnameVerifier hostnameVerifier;
+
+        /** @deprecated since 0.6.0. Use {@link WinRmClient#builder(URL, String)} instead. */
+        @Deprecated
         public Builder(URL endpoint, String authenticationScheme) {
-            client = new WinRmClient(endpoint, authenticationScheme);
+            this(endpoint);
+            authenticationScheme(authenticationScheme);
         }
+
+        /** @deprecated since 0.6.0. Use {@link WinRmClient#builder(String, String)} instead. */
         public Builder(String endpoint, String authenticationScheme) {
-            this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")), authenticationScheme);
+            this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")),
+                    checkNotNull(authenticationScheme, "authenticationScheme"));
         }
+
+        private Builder(String endpoint) {
+            this(toUrlUnchecked(checkNotNull(endpoint, "endpoint")));
+        }
+
+        private Builder(URL endpoint) {
+            this.endpoint = checkNotNull(endpoint, "endpoint");
+            authenticationScheme(AuthSchemes.NTLM);
+            locale(DEFAULT_LOCALE);
+            operationTimeout(DEFAULT_OPERATION_TIMEOUT);
+            retriesForConnectionFailures(DEFAULT_RETRIES_FOR_CONNECTION_FAILURES);
+        }
+
+        public Builder authenticationScheme(String authenticationScheme) {
+            this.authenticationScheme = checkNotNull(authenticationScheme, "authenticationScheme");
+            return this;
+        }
+
         public Builder credentials(String username, String password) {
             return credentials(null, username, password);
         }
@@ -148,9 +188,9 @@ public class WinRmClient {
          * Credentials to use for authentication
          */
         public Builder credentials(String domain, String username, String password) {
-            client.domain = domain;
-            client.username = checkNotNull(username, "username");
-            client.password = checkNotNull(password, "password");
+            this.domain = domain;
+            this.username = checkNotNull(username, "username");
+            this.password = checkNotNull(password, "password");
             return this;
         }
 
@@ -160,7 +200,7 @@ public class WinRmClient {
         public Builder locale(java.util.Locale locale) {
             Locale l = new Locale();
             l.setLang(checkNotNull(locale, "locale").toLanguageTag());
-            client.locale = l;
+            this.locale = l;
             return this;
         }
 
@@ -173,8 +213,7 @@ public class WinRmClient {
          *                         default value {@link WinRmClient.Builder#DEFAULT_OPERATION_TIMEOUT}
          */
         public Builder operationTimeout(long operationTimeout) {
-            client.operationTimeout = toDuration(operationTimeout);
-            client.receiveTimeout = operationTimeout + 60l * 1000l;
+            this.operationTimeout = checkNotNull(operationTimeout, "operationTimeout");
             return this;
         }
 
@@ -182,11 +221,11 @@ public class WinRmClient {
          * @param retriesConnectionFailures How many times to retry the command before giving up in case of failure (exception).
          *        Default is 16.
          */
-        public Builder retriesForConnectionFailures(Integer retriesConnectionFailures) {
+        public Builder retriesForConnectionFailures(int retriesConnectionFailures) {
             if (retriesConnectionFailures < 1) {
                 throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
             }
-            client.retriesForConnectionFailures = retriesConnectionFailures;
+            this.retriesForConnectionFailures = retriesConnectionFailures;
             return this;
         }
 
@@ -197,7 +236,7 @@ public class WinRmClient {
          *        for a more precise white-listing of server certificates.
          */
         public Builder disableCertificateChecks(boolean disableCertificateChecks) {
-            client.disableCertificateChecks = disableCertificateChecks;
+            this.disableCertificateChecks = disableCertificateChecks;
             return this;
         }
 
@@ -205,7 +244,7 @@ public class WinRmClient {
          * @param workingDirectory the working directory of the process
          */
         public Builder workingDirectory(String workingDirectory) {
-            client.workingDirectory = checkNotNull(workingDirectory, "workingDirectory");
+            this.workingDirectory = checkNotNull(workingDirectory, "workingDirectory");
             return this;
         }
 
@@ -213,7 +252,7 @@ public class WinRmClient {
          * @param environment variables to pass to the command
          */
         public Builder environment(Map<String, String> environment) {
-            client.environment = checkNotNull(environment, "environment");
+            this.environment = checkNotNull(environment, "environment");
             return this;
         }
 
@@ -224,7 +263,7 @@ public class WinRmClient {
          *        disable certificate checks for all host names.
          */
         public Builder hostnameVerifier(HostnameVerifier hostnameVerifier) {
-            client.hostnameVerifier = hostnameVerifier;
+            this.hostnameVerifier = hostnameVerifier;
             return this;
         }
 
@@ -234,7 +273,7 @@ public class WinRmClient {
          *        for each {@link WinRmClient} instance.
          */
         public Builder context(WinRmClientContext context) {
-            client.context = context;
+            this.context = context;
             return this;
         }
 
@@ -242,17 +281,9 @@ public class WinRmClient {
          * Create a WinRmClient
          */
         public WinRmClient build() {
-            if (client.locale == null) {
-                locale(DEFAULT_LOCALE);
-            }
-            if (client.operationTimeout == null) {
-                client.operationTimeout = toDuration(DEFAULT_OPERATION_TIMEOUT);
-                client.receiveTimeout = DEFAULT_OPERATION_TIMEOUT + 30l * 1000l;
-            }
-            WinRmClient ret = client;
-            client = null;
-            return ret;
+            return new WinRmClient(this);
         }
+
         private static URL toUrlUnchecked(String endpoint) {
             try {
                 return new URL(endpoint);
@@ -260,19 +291,46 @@ public class WinRmClient {
                 throw new IllegalArgumentException(e);
             }
         }
-        private static String toDuration(long operationTimeout) {
-            BigDecimal bdMs = BigDecimal.valueOf(operationTimeout);
-            BigDecimal bdSec = bdMs.divide(BigDecimal.valueOf(1000));
-            DecimalFormat df = new DecimalFormat("PT#.###S", new DecimalFormatSymbols(java.util.Locale.ROOT));
-            return df.format(bdSec);
+    }
+
+    private WinRmClient(Builder builder) {
+        this.workingDirectory = builder.workingDirectory;
+        this.locale = builder.locale;
+        this.operationTimeout = toDuration(builder.operationTimeout);
+        this.environment = builder.environment;
+        this.retriesForConnectionFailures = builder.retriesForConnectionFailures;
+
+        if (builder.context != null) {
+            this.context = builder.context;
+            this.cleanupContext = false;
+        } else {
+            this.context = WinRmClientContext.newInstance();
+            this.cleanupContext = true;
         }
+
+        this.winrm = getService(builder);
     }
 
-    private WinRmClient(URL endpoint, String authenticationScheme) {
-        this.authenticationScheme = authenticationScheme != null ? authenticationScheme : AuthSchemes.NTLM;
-        this.endpoint = endpoint;
+    /** 
+     * @deprecated since 0.6.0. Re-build the client for a new operation timeout.
+     * Note that the {@code receiveTimeout} is not changed.
+     * {@code operationTimeout} is not a command time out but the polling
+     * timeout so doesn't make much sense to change it mid-use.
+     */
+    @Deprecated
+    public void setOperationTimeout(long timeout) {
+        this.operationTimeout = toDuration(timeout);
     }
 
+    public WinRm getService(Builder builder) {
+        WinRm service = WinRmFactory.newInstance(context.getBus());
+        initializeClientAndService(service, builder);
+        return service;
+    }
+
+    /**
+     * @deprecated since 0.6.0. Use {@link #createShell()} and {@link ShellCommand#execute(String, Writer, Writer)} instead.
+     */
     @Deprecated
     public int command(String cmd, Writer out, Writer err) {
         return initInstanceShell().execute(cmd, out, err);
@@ -300,27 +358,29 @@ public class WinRmClient {
         return addrProps;
     }
 
+    /**
+     * @deprecated since 0.6.0. Exposed for tests only. Will be removed.
+     */
     @Deprecated
     public int getNumberOfReceiveCalls() {
         return shellCommand.getNumberOfReceiveCalls();
     }
 
-    private synchronized void initService() {
-        if (winrm == null) {
-            if (context != null) {
-                cleanupContext = false;
-            } else {
-                context = WinRmClientContext.newInstance();
-                cleanupContext = true;
-            }
-
-            WinRm service = WinRmFactory.newInstance(context.getBus());
-            initializeClientAndService(service);
-            winrm = service;
+    private static void initializeClientAndService(WinRm winrm, Builder builder) {
+        String endpoint = builder.endpoint.toExternalForm();
+        String authenticationScheme = builder.authenticationScheme;
+        String username = builder.username;
+        String password = builder.password;
+        String domain = builder.domain;
+        boolean disableCertificateChecks = builder.disableCertificateChecks;
+        HostnameVerifier hostnameVerifier = builder.hostnameVerifier;
+        long receiveTimeout;
+        if (builder.receiveTimeout != null) {
+            receiveTimeout = builder.receiveTimeout;
+        } else {
+            receiveTimeout = operationToReceiveTimeout(builder.operationTimeout);
         }
-    }
 
-    private void initializeClientAndService(WinRm winrm) {
         Client client = ClientProxy.getClient(winrm);
         ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
         
@@ -340,7 +400,7 @@ public class WinRmClient {
         AddressingProperties maps = new AddressingProperties(VersionTransformer.Names200408.WSA_NAMESPACE_NAME);
         requestContext.put(JAXWSAConstants.CLIENT_ADDRESSING_PROPERTIES, maps);
 
-        bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint.toExternalForm());
+        bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint);
 
         switch (authenticationScheme) {
             case AuthSchemes.BASIC:
@@ -401,9 +461,11 @@ public class WinRmClient {
         }
     }
 
+    /**
+     * Creates a Shell resource on the server, available for executing commands through the {@link ShellCommand} object.
+     * {@link ShellCommand#close()} the returned object after usage.
+     */
     public ShellCommand createShell() {
-        initService();
-
         final Shell shell = new Shell();
         shell.getInputStreams().add("stdin");
         shell.getOutputStreams().add("stdout");
@@ -441,7 +503,7 @@ public class WinRmClient {
                 return winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
             }
         }, retriesForConnectionFailures);
-        shellId = getShellId(resourceCreated);
+        String shellId = getShellId(resourceCreated);
 
         return new ShellCommand(winrm, shellId, operationTimeout, locale, retriesForConnectionFailures);
     }
@@ -462,6 +524,10 @@ public class WinRmClient {
         throw new IllegalStateException("Shell ID not fount in " + resourceCreated);
     }
 
+    /**
+     * @deprecated since 0.6.0. Use {@link ShellCommand#close()} instead.
+     */
+    @Deprecated
     public void disconnect() {
         if (context == null) return;
         boolean isBusRunning = context.getBus().getState() != BusState.SHUTDOWN;
@@ -474,7 +540,6 @@ public class WinRmClient {
         } finally {
             if (cleanupContext) {
                 context.getBus().shutdown(true);
-                context = null;
             }
         }
     }
@@ -497,6 +562,17 @@ public class WinRmClient {
             throw new NullPointerException(msg);
         }
         return check;
+    }
+
+    private static long operationToReceiveTimeout(long operationTimeout) {
+        return operationTimeout + 60l * 1000l;
+    }
+
+    private static String toDuration(long operationTimeout) {
+        BigDecimal bdMs = BigDecimal.valueOf(operationTimeout);
+        BigDecimal bdSec = bdMs.divide(BigDecimal.valueOf(1000));
+        DecimalFormat df = new DecimalFormat("PT#.###S", new DecimalFormatSymbols(java.util.Locale.ROOT));
+        return df.format(bdSec);
     }
 
     static <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall, Integer retriesForConnectionFailures) throws SOAPFaultException {
