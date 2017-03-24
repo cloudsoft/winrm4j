@@ -1,14 +1,13 @@
 package io.cloudsoft.winrm4j.client;
 
-import java.io.IOException;
 import java.io.Writer;
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -19,7 +18,6 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.handler.Handler;
-import javax.xml.ws.soap.SOAPFaultException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
@@ -32,7 +30,6 @@ import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.addressing.AddressingProperties;
-import org.apache.cxf.ws.addressing.AttributedURIType;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
 import org.apache.cxf.ws.addressing.VersionTransformer;
 import org.apache.http.auth.AuthSchemeProvider;
@@ -44,8 +41,6 @@ import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
@@ -61,8 +56,6 @@ import io.cloudsoft.winrm4j.client.wsman.OptionType;
  * TODO confirm if commands can be called in parallel in one shell (probably not)!
  */
 public class WinRmClient {
-    private static final Logger LOG = LoggerFactory.getLogger(WinRmClient.class.getName());
-
     static final int MAX_ENVELOPER_SIZE = 153600;
     static final String RESOURCE_URI = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd";
 
@@ -72,12 +65,12 @@ public class WinRmClient {
 
     // Can be changed throughout object's lifetime, but deprecated
     private String operationTimeout;
-    private final int retriesForConnectionFailures;
 
     private final WinRmClientContext context;
     private final boolean cleanupContext;
 
     private final WinRm winrm;
+    private RetryingProxyHandler retryingHandler;
 
     private ShellCommand shellCommand;
 
@@ -161,7 +154,6 @@ public class WinRmClient {
         this.locale = builder.locale;
         this.operationTimeout = toDuration(builder.operationTimeout);
         this.environment = builder.environment;
-        this.retriesForConnectionFailures = builder.retriesForConnectionFailures;
 
         if (builder.context != null) {
             this.context = builder.context;
@@ -171,7 +163,11 @@ public class WinRmClient {
             this.cleanupContext = true;
         }
 
-        this.winrm = getService(builder);
+        WinRm service = getService(builder);
+        retryingHandler = new RetryingProxyHandler(service, builder.retriesForConnectionFailures);
+        this.winrm = (WinRm) Proxy.newProxyInstance(WinRm.class.getClassLoader(),
+                new Class[] {WinRm.class, BindingProvider.class},
+                retryingHandler);
     }
 
     /** 
@@ -197,28 +193,6 @@ public class WinRmClient {
     @Deprecated
     public int command(String cmd, Writer out, Writer err) {
         return initInstanceShell().execute(cmd, out, err);
-    }
-
-    // TODO fix CXF to not set a wrong action https://issues.apache.org/jira/browse/CXF-4647
-    static void setActionToContext(BindingProvider bp, String action) {
-        AttributedURIType attrUri = new AttributedURIType();
-        attrUri.setValue(action);
-        AddressingProperties addrProps = getAddressingProperties(bp);
-        addrProps.setAction(attrUri);
-    }
-
-    static AddressingProperties getAddressingProperties(BindingProvider bp) {
-        String ADDR_CONTEXT = "javax.xml.ws.addressing.context";
-        Map<String, Object> reqContext = bp.getRequestContext();
-        if (reqContext==null) {
-            throw new NullPointerException("Unable to load request context; delegate load failed");
-        }
-        
-        AddressingProperties addrProps = ((AddressingProperties)reqContext.get(ADDR_CONTEXT));
-        if (addrProps==null) {
-            throw new NullPointerException("Unable to load request context "+ADDR_CONTEXT+"; are the addressing classes installed (you may need <feature>cxf-ws-addr</feature> if running in osgi)");
-        }
-        return addrProps;
     }
 
     /**
@@ -358,17 +332,10 @@ public class WinRmClient {
         optCodepage.setValue("437");
         optSetCreate.getOption().add(optCodepage);
 
-        ResourceCreated resourceCreated = winrmCallRetryConnFailure(new CallableFunction<ResourceCreated>() {
-            @Override
-            public ResourceCreated call() {
-                //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-                setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Create");
-                return winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
-            }
-        }, retriesForConnectionFailures);
+        ResourceCreated resourceCreated = winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
         String shellId = getShellId(resourceCreated);
 
-        return new ShellCommand(winrm, shellId, operationTimeout, locale, retriesForConnectionFailures);
+        return new ShellCommand(winrm, shellId, operationTimeout, locale);
     }
 
     private static String getShellId(ResourceCreated resourceCreated) {
@@ -438,38 +405,4 @@ public class WinRmClient {
         return check;
     }
 
-    static <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall, Integer retriesForConnectionFailures) throws SOAPFaultException {
-        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 16;
-        List<Throwable> exceptions = new ArrayList<>();
-
-        for (int i = 0; i < retries + 1; i++) {
-            try {
-                return winrmCall.call();
-            } catch (SOAPFaultException soapFault) {
-                throw soapFault;
-            } catch (javax.xml.ws.WebServiceException wsException) {
-                if (!(wsException.getCause() instanceof IOException)) {
-                    throw new RuntimeException("Exception occurred while making winrm call", wsException);
-                }
-                LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + (retries + 1) + ") {}", wsException);
-                try {
-                    Thread.sleep(5 * 1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Exception occured while making winrm call", e.initCause(wsException));
-                }
-                exceptions.add(wsException);
-            }
-        }
-        throw new RuntimeException("failed task " + winrmCall, exceptions.get(0));
-    }
-
-    /**
-     * A {@link java.util.concurrent.Callable} like but without <code>throws Exception</code> signature
-     *
-     * @param <V> the result type of method {@code call}
-     */
-    interface CallableFunction<V> {
-        V call();
-    }
 }
