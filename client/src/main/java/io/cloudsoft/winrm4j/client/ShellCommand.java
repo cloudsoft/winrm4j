@@ -4,14 +4,12 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
-import javax.xml.ws.BindingProvider;
 import javax.xml.ws.soap.SOAPFaultException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.NodeList;
 
-import io.cloudsoft.winrm4j.client.WinRmClient.CallableFunction;
 import io.cloudsoft.winrm4j.client.shell.CommandLine;
 import io.cloudsoft.winrm4j.client.shell.CommandStateType;
 import io.cloudsoft.winrm4j.client.shell.DesiredStreamType;
@@ -19,14 +17,12 @@ import io.cloudsoft.winrm4j.client.shell.Receive;
 import io.cloudsoft.winrm4j.client.shell.ReceiveResponse;
 import io.cloudsoft.winrm4j.client.shell.StreamType;
 import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
-import io.cloudsoft.winrm4j.client.wsman.DeleteResponse;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.client.wsman.OptionType;
 import io.cloudsoft.winrm4j.client.wsman.SelectorSetType;
 import io.cloudsoft.winrm4j.client.wsman.SelectorType;
 import io.cloudsoft.winrm4j.client.wsman.Signal;
-import io.cloudsoft.winrm4j.client.wsman.SignalResponse;
 
 public class ShellCommand implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ShellCommand.class.getName());
@@ -51,16 +47,14 @@ public class ShellCommand implements AutoCloseable {
 
     private String operationTimeout;
     private final Locale locale;
-    private final Integer retriesForConnectionFailures;
 
     private int numberOfReceiveCalls;
 
-    public ShellCommand(WinRm winrm, String shellId, String operationTimeout, Locale locale, Integer retriesForConnectionFailures) {
+    public ShellCommand(WinRm winrm, String shellId, String operationTimeout, Locale locale) {
         this.winrm = winrm;
         this.shellSelector = createShellSelector(shellId);
         this.operationTimeout = operationTimeout;
         this.locale = locale;
-        this.retriesForConnectionFailures = retriesForConnectionFailures;
     }
 
     private SelectorSetType createShellSelector(String shellId) {
@@ -88,8 +82,7 @@ public class ShellCommand implements AutoCloseable {
         optSetCmd.getOption().add(optSkipCmdShell);
 
         numberOfReceiveCalls = 0;
-        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-        WinRmClient.setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command");
+
         CommandResponse cmdResponse = winrm.command(cmdLine, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
 
         String commandId = cmdResponse.getCommandId();
@@ -116,14 +109,7 @@ public class ShellCommand implements AutoCloseable {
 
             try {
                 numberOfReceiveCalls++;
-                ReceiveResponse receiveResponse = WinRmClient.winrmCallRetryConnFailure(new WinRmClient.CallableFunction<ReceiveResponse>() {
-                    @Override
-                    public ReceiveResponse call() {
-                        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-                        WinRmClient.setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive");
-                        return winrm.receive(receive, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
-                    }
-                }, retriesForConnectionFailures);
+                ReceiveResponse receiveResponse = winrm.receive(receive, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
                 getStreams(receiveResponse, out, err);
 
                 CommandStateType state = receiveResponse.getCommandState();
@@ -211,29 +197,14 @@ public class ShellCommand implements AutoCloseable {
         signal.setCommandId(commandId);
         signal.setCode("http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/terminate");
 
-        WinRmClient.winrmCallRetryConnFailure(new CallableFunction<SignalResponse>() {
-            @Override
-            public SignalResponse call() {
-                //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-                WinRmClient.setActionToContext((BindingProvider) winrm, "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal");
-                return winrm.signal(signal, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
-            }
-        }, retriesForConnectionFailures);
-
+        winrm.signal(signal, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
     }
 
 
     @Override
     public void close() {
         try {
-            WinRmClient.winrmCallRetryConnFailure(new CallableFunction<DeleteResponse>() {
-                @Override
-                public DeleteResponse call() {
-                    //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-                    WinRmClient.setActionToContext((BindingProvider) winrm, "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete");
-                    return winrm.delete(null, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
-                }
-            }, retriesForConnectionFailures);
+            winrm.delete(null, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
         } catch (SOAPFaultException soapFault) {
             assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
         }
