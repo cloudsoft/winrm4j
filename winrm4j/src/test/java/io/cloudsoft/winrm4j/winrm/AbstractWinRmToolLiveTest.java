@@ -50,7 +50,7 @@ public class AbstractWinRmToolLiveTest {
     protected static final String VM_USER = System.getProperty("winrm.livetest.user");
     protected static final String VM_PASSWORD = System.getProperty("winrm.livetest.password");
 
-    private WinRmClientContext context;
+    protected WinRmClientContext context;
 
     protected WinRmTool.Builder winRmTool() throws Exception {
 //            return WinRmTool.connect(VM_ADDRESS + ":" + VM_PORT, VM_USER, VM_PASSWORD);

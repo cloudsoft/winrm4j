@@ -218,11 +218,11 @@ public class WinRmClient {
 
         /**
          * @param retriesConnectionFailures How many times to retry the command before giving up in case of failure (exception).
-         *        Default is 16.
+         *        Default is 8.
          */
         public Builder retriesForConnectionFailures(Integer retriesConnectionFailures) {
-            if (retriesConnectionFailures < 1) {
-                throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
+            if (retriesConnectionFailures < 0) {
+                throw new IllegalArgumentException("retriesConnectionFailure should be zero or more");
             }
             client.retriesForConnectionFailures = retriesConnectionFailures;
             return this;
@@ -863,7 +863,7 @@ public class WinRmClient {
     }
 
     private <V> V winrmCallRetryConnFailure(CallableFunction<V> winrmCall) throws SOAPFaultException {
-        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 16;
+        int retries = retriesForConnectionFailures != null ? retriesForConnectionFailures : 8;
         List<Throwable> exceptions = new ArrayList<>();
 
         for (int i = 0; i < retries + 1; i++) {
