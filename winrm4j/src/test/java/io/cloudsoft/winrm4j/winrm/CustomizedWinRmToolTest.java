@@ -13,17 +13,15 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class CustomizedWinRmToolTest extends AbstractWinRmToolLiveTest {
-    protected final Callable<WinRmTool.Builder> INIT_CUSTOMIZED_WINRM_TOOL = new Callable<WinRmTool.Builder>() {
-        @Override
-        public WinRmTool.Builder call() throws Exception {
-            final WinRmTool.Builder winRmToolBuilder = WinRmTool.Builder.builder(VM_HOST, VM_USER, VM_PASSWORD);
-            winRmToolBuilder.setAuthenticationScheme(AuthSchemes.NTLM);
-            winRmToolBuilder.port(VM_PORT);
-            winRmToolBuilder.useHttps(false);
-            winRmToolBuilder.disableCertificateChecks(true);
-            return winRmToolBuilder;
-        }
-    };
+    @Override
+    protected WinRmTool.Builder winRmTool() {
+        final WinRmTool.Builder winRmToolBuilder = WinRmTool.Builder.builder(VM_ADDRESS, VM_USER, VM_PASSWORD);
+        winRmToolBuilder.setAuthenticationScheme(AuthSchemes.NTLM);
+        winRmToolBuilder.port(VM_PORT);
+        winRmToolBuilder.useHttps(false);
+        winRmToolBuilder.disableCertificateChecks(true);
+        return winRmToolBuilder;
+    }
 
     @Test(groups = "Live")
     public void testAssigningEnvironmentVariables() {
@@ -33,7 +31,7 @@ public class CustomizedWinRmToolTest extends AbstractWinRmToolLiveTest {
 
         WinRmToolResponse cmdResponse = callWithRetries(new Callable<WinRmToolResponse>() {
             @Override public WinRmToolResponse call() throws Exception {
-                WinRmTool.Builder tool = INIT_CUSTOMIZED_WINRM_TOOL.call();
+                WinRmTool.Builder tool = winRmTool();
                 tool.environment(environment);
                 return tool.build().executeCommand("echo %TEST1% & echo %TEST2%");
             }});
@@ -41,7 +39,7 @@ public class CustomizedWinRmToolTest extends AbstractWinRmToolLiveTest {
         assertEquals(cmdResponse.getStdOut(), "Hello Test 1 \r\nHello Test 2\r\n");
         WinRmToolResponse psResponse = callWithRetries(new Callable<WinRmToolResponse>() {
             @Override public WinRmToolResponse call() throws Exception {
-                WinRmTool.Builder tool = INIT_CUSTOMIZED_WINRM_TOOL.call();
+                WinRmTool.Builder tool = winRmTool();
                 tool.environment(environment);
 
                 List<String> psScript = new ArrayList<>();
@@ -58,7 +56,7 @@ public class CustomizedWinRmToolTest extends AbstractWinRmToolLiveTest {
         final String cmdWorkingDirectory = "%TEMP%";
         WinRmToolResponse cmdResponse = callWithRetries(new Callable<WinRmToolResponse>() {
             @Override public WinRmToolResponse call() throws Exception {
-                WinRmTool.Builder tool = INIT_CUSTOMIZED_WINRM_TOOL.call();
+                WinRmTool.Builder tool = winRmTool();
                 tool.workingDirectory(cmdWorkingDirectory);
                 return tool.build().executeCommand("echo %cd%");
             }});
@@ -67,7 +65,7 @@ public class CustomizedWinRmToolTest extends AbstractWinRmToolLiveTest {
         final String psWorkingDirectory = "%TEMP%";
         WinRmToolResponse psResponse = callWithRetries(new Callable<WinRmToolResponse>() {
             @Override public WinRmToolResponse call() throws Exception {
-                WinRmTool.Builder tool = INIT_CUSTOMIZED_WINRM_TOOL.call();
+                WinRmTool.Builder tool = winRmTool();
                 tool.workingDirectory(psWorkingDirectory);
                 return tool.build().executePs("Write-Host $pwd.Path");
             }});

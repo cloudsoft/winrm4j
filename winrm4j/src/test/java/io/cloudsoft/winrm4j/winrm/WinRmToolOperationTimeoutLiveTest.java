@@ -23,7 +23,7 @@ public class WinRmToolOperationTimeoutLiveTest extends AbstractWinRmToolLiveTest
         String ps = String.format("Start-Sleep -s %d\r\nWrite-Host Test Completed", operationTimeoutInSeconds - 5);
 
         Stopwatch stopwatch = Stopwatch.createStarted();
-        WinRmTool winRmTool = WINRM_TOOL.call();
+        WinRmTool winRmTool = winRmTool().build();
         winRmTool.setOperationTimeout(operationTimeoutInSeconds * 1000l);
         WinRmToolResponse response = winRmTool.executePs(ps);
         String msg = "statusCode="+response.getStatusCode()+"; out="+response.getStdOut()+"; err="+response.getStdErr();
@@ -35,7 +35,7 @@ public class WinRmToolOperationTimeoutLiveTest extends AbstractWinRmToolLiveTest
     @Test(groups = "Live")
     public void testExceedingSpecifiedOperationTimeout() throws Exception {
         final Long operationTimeoutInSeconds = 5l; // Put WinRmClient.Builder.DEFAULT_OPERATION_TIMEOUT / 1000 to test the default value
-        WinRmTool winRmTool = WINRM_TOOL.call();
+        WinRmTool winRmTool = winRmTool().build();
         winRmTool.setOperationTimeout(operationTimeoutInSeconds * 1000l);
 
         WinRmToolResponse response = winRmTool.executePs(String.format("Start-Sleep -s %d\r\nWrite-Host Test Completed", 4 * operationTimeoutInSeconds));

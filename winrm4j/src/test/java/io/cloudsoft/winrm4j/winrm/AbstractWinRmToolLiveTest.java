@@ -45,24 +45,23 @@ public class AbstractWinRmToolLiveTest {
     protected static final String PS_ERR_ACTION_PREF_EQ_STOP = "$ErrorActionPreference = \"Stop\"";
 
     // TODO Substitute these for a real machine!
-    protected static final String VM_HOST = "1.2.3.4";
-    protected static final int VM_PORT = 5986;
-    protected static final String VM_USER = "Administrator";
-    protected static final String VM_PASSWORD = "pa55w0rd";
+    protected static final String VM_ADDRESS = System.getProperty("winrm.livetest.address");
+    protected static final int VM_PORT = System.getProperty("winrm.livetest.port") == null ? 5985 : Integer.parseInt(System.getProperty("winrm.livetest.port"));
+    protected static final String VM_USER = System.getProperty("winrm.livetest.user");
+    protected static final String VM_PASSWORD = System.getProperty("winrm.livetest.password");
 
     private WinRmClientContext context;
 
-    Callable<WinRmTool> WINRM_TOOL = new Callable<WinRmTool>() {
-        @Override public WinRmTool call() throws Exception {
-//            return WinRmTool.connect(VM_HOST + ":" + VM_PORT, VM_USER, VM_PASSWORD);
-            WinRmTool.Builder builder = WinRmTool.Builder.builder(VM_HOST, VM_USER, VM_PASSWORD);
-            builder.setAuthenticationScheme(AuthSchemes.NTLM);
-            builder.port(VM_PORT);
-            builder.useHttps(VM_PORT != 5985);
-            builder.disableCertificateChecks(true);
-            builder.context(context);
-            return builder.build();
-        }};
+    protected WinRmTool.Builder winRmTool() throws Exception {
+//            return WinRmTool.connect(VM_ADDRESS + ":" + VM_PORT, VM_USER, VM_PASSWORD);
+        WinRmTool.Builder builder = WinRmTool.Builder.builder(VM_ADDRESS, VM_USER, VM_PASSWORD);
+        builder.setAuthenticationScheme(AuthSchemes.NTLM);
+        builder.port(VM_PORT);
+        builder.useHttps(VM_PORT != 5985);
+        builder.disableCertificateChecks(true);
+        builder.context(context);
+        return builder;
+    }
 
     protected ListeningExecutorService executor;
 
@@ -165,7 +164,7 @@ public class AbstractWinRmToolLiveTest {
     protected WinRmToolResponse executeCommand(final String command) {
         return callWithRetries(new Callable<WinRmToolResponse>() {
             @Override public WinRmToolResponse call() throws Exception {
-                WinRmTool winRmTool = WINRM_TOOL.call();
+                WinRmTool winRmTool = winRmTool().build();
                 return winRmTool.executeCommand(command);
             }});
     }
@@ -173,7 +172,7 @@ public class AbstractWinRmToolLiveTest {
     protected WinRmToolResponse executeCommand(final List<String> commands) {
     	return callWithRetries(new Callable<WinRmToolResponse>() {
 			@Override public WinRmToolResponse call() throws Exception {
-		        WinRmTool winRmTool = WINRM_TOOL.call();
+		        WinRmTool winRmTool = winRmTool().build();
 		        return winRmTool.executeCommand(commands);
 			}});
     }
@@ -181,7 +180,7 @@ public class AbstractWinRmToolLiveTest {
     protected WinRmToolResponse executePs(final String command) {
     	return callWithRetries(new Callable<WinRmToolResponse>() {
 			@Override public WinRmToolResponse call() throws Exception {
-		        WinRmTool winRmTool = WINRM_TOOL.call();
+		        WinRmTool winRmTool = winRmTool().build();
 		        return winRmTool.executePs(command);
 			}});
     }
@@ -189,20 +188,25 @@ public class AbstractWinRmToolLiveTest {
     protected WinRmToolResponse executePs(final List<String> script) {
         return callWithRetries(new Callable<WinRmToolResponse>() {
             @Override public WinRmToolResponse call() throws Exception {
-                WinRmTool winRmTool = WINRM_TOOL.call();
+                WinRmTool winRmTool = winRmTool().build();
                 return winRmTool.executePs(script);
             }});
     }
 
     protected WinRmToolResponse executePs(final WinRmTool winRmTool, final String command) {
-    	return callWithRetries(new Callable<WinRmToolResponse>() {
-			@Override public WinRmToolResponse call() throws Exception {
-		        return winRmTool.executePs(command);
-			}});
+      return callWithRetries(new Callable<WinRmToolResponse>() {
+          @Override public WinRmToolResponse call() throws Exception {
+              return winRmTool.executePs(command);
+          }});
     }
 
     protected WinRmTool connect() throws Exception {
-    	return callWithRetries(WINRM_TOOL);
+        return callWithRetries(new Callable<WinRmTool>() {
+            @Override
+            public WinRmTool call() throws Exception {
+                return winRmTool().build();
+            }
+        });
     }
 
     protected <T> T callWithRetries(Callable<T> task) {
