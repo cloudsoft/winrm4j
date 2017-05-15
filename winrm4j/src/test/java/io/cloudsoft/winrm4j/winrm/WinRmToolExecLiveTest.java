@@ -396,8 +396,9 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         assertSucceeded("echo myline", response2, "myline", "", stopwatch);
     }
 
+    /** Use Z letter in front of test name so it is executed on last place in InteliJ. */
     @Test(groups="Live")
-    public void testToolConcurrentReuse() throws Exception {
+    public void testZToolConcurrentReuse() throws Exception {
         // There are built-in retries at two levels in the code:
         // * executePs will retry 10 times
         // * each low-level WinRm command will retry 16 times
@@ -405,7 +406,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         // As a result each executePs call could retry requests for a total of
         // 10 x (16 + 16) = 320 times PER ITERATION
         // That would result in 3200 failing requests for the tasks below!
-        final int NUM_RUNS = 10;
+        final int NUM_RUNS = 3;
         final int TIMEOUT_MINS = 30;
         final AtomicInteger counter = new AtomicInteger();
 
@@ -434,9 +435,10 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         Futures.allAsList(results).get(TIMEOUT_MINS, TimeUnit.MINUTES);
     }
 
+    /** Use Z letter in front of test name so it is executed on last place in InteliJ. */
     @Test(groups={"Live", "Acceptance"})
-    public void testExecConcurrently() throws Exception {
-        final int NUM_RUNS = 10;
+    public void testZExecConcurrently() throws Exception {
+        final int NUM_RUNS = 3;
         final int TIMEOUT_MINS = 30;
         final AtomicInteger counter = new AtomicInteger();
         
