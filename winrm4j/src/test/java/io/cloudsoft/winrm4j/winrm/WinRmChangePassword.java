@@ -2,6 +2,7 @@ package io.cloudsoft.winrm4j.winrm;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import io.cloudsoft.winrm4j.client.WinRmClientContext;
 import org.apache.http.client.config.AuthSchemes;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -24,7 +25,7 @@ public class WinRmChangePassword extends AbstractWinRmToolLiveTest {
         builder.port(VM_PORT);
         builder.useHttps(VM_PORT != 5985);
         builder.disableCertificateChecks(true);
-        builder.context(context);
+        builder.context(WinRmClientContext.newInstance());
         WinRmTool wrongPassTool = builder.build();
         wrongPassTool.setRetriesForConnectionFailures(0);
         try {

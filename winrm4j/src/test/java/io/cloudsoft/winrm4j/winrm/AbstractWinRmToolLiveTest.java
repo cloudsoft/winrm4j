@@ -10,6 +10,7 @@ import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -39,7 +40,7 @@ public class AbstractWinRmToolLiveTest {
 
 	private static final Logger LOG = Logger.getLogger(AbstractWinRmToolLiveTest.class.getName());
 
-	protected static final int MAX_EXECUTOR_THREADS = 100;
+	protected static final int MAX_EXECUTOR_THREADS = 50;
 
     protected static final String INVALID_CMD = "thisCommandDoesNotExistAEFafiee3d";
     protected static final String PS_ERR_ACTION_PREF_EQ_STOP = "$ErrorActionPreference = \"Stop\"";
@@ -50,16 +51,18 @@ public class AbstractWinRmToolLiveTest {
     protected static final String VM_USER = System.getProperty("winrm.livetest.user");
     protected static final String VM_PASSWORD = System.getProperty("winrm.livetest.password");
 
+    protected final AtomicInteger winRmToolsCount = new AtomicInteger();
     protected WinRmClientContext context;
 
     protected WinRmTool.Builder winRmTool() throws Exception {
+        LOG.info("Current session counter: " + winRmToolsCount.getAndIncrement());
 //            return WinRmTool.connect(VM_ADDRESS + ":" + VM_PORT, VM_USER, VM_PASSWORD);
         WinRmTool.Builder builder = WinRmTool.Builder.builder(VM_ADDRESS, VM_USER, VM_PASSWORD);
         builder.setAuthenticationScheme(AuthSchemes.NTLM);
         builder.port(VM_PORT);
         builder.useHttps(VM_PORT != 5985);
         builder.disableCertificateChecks(true);
-        builder.context(context);
+        builder.context(WinRmClientContext.newInstance());
         return builder;
     }
 

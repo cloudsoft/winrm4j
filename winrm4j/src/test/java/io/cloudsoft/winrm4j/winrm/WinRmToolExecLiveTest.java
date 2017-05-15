@@ -436,7 +436,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
 
     @Test(groups={"Live", "Acceptance"})
     public void testExecConcurrently() throws Exception {
-        final int NUM_RUNS = 10;
+        final int NUM_RUNS = 3;
         final int TIMEOUT_MINS = 30;
         final AtomicInteger counter = new AtomicInteger();
         
