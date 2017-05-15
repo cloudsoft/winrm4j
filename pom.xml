@@ -532,9 +532,6 @@
             <executions>
               <execution>
                 <id>test-jar-creation</id>
-                <configuration>
-                   <skip>true</skip>
-                </configuration>
               </execution>
             </executions>
           </plugin>
@@ -555,9 +552,6 @@
             <executions>
               <execution>
                 <id>test-jar-creation</id>
-                <configuration>
-                  <skip>true</skip>
-                </configuration>
               </execution>
             </executions>
           </plugin>
@@ -578,9 +572,6 @@
             <executions>
               <execution>
                 <id>test-jar-creation</id>
-                <configuration>
-                  <skip>true</skip>
-                </configuration>
               </execution>
             </executions>
           </plugin>
