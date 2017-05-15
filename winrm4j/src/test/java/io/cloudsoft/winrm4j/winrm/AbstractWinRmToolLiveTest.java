@@ -36,7 +36,7 @@ public class AbstractWinRmToolLiveTest {
 
     private static final Logger LOG = Logger.getLogger(AbstractWinRmToolLiveTest.class.getName());
 
-    protected static final int MAX_EXECUTOR_THREADS = 100;
+    protected static final int MAX_EXECUTOR_THREADS = 50;
 
     protected static final String INVALID_CMD = "thisCommandDoesNotExistAEFafiee3d";
     protected static final String PS_ERR_ACTION_PREF_EQ_STOP = "$ErrorActionPreference = \"Stop\"";

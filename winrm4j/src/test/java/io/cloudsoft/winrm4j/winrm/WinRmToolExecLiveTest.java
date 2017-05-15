@@ -394,8 +394,9 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         assertSucceeded("echo myline", response2, "myline", "", stopwatch);
     }
 
+    /** Use Z letter in front of test name so it is executed on last place in InteliJ. */
     @Test(groups="Live")
-    public void testToolConcurrentReuse() throws Exception {
+    public void testZToolConcurrentReuse() throws Exception {
         final int NUM_RUNS = 20;
         final int TIMEOUT_MINS = 30;
         final AtomicInteger counter = new AtomicInteger();
@@ -424,9 +425,10 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         Futures.allAsList(results).get(TIMEOUT_MINS, TimeUnit.MINUTES);
     }
 
+    /** Use Z letter in front of test name so it is executed on last place in InteliJ. */
     @Test(groups={"Live", "Acceptance"})
-    public void testExecConcurrently() throws Exception {
-        final int NUM_RUNS = 10;
+    public void testZExecConcurrently() throws Exception {
+        final int NUM_RUNS = 3;
         final int TIMEOUT_MINS = 30;
         final AtomicInteger counter = new AtomicInteger();
         
