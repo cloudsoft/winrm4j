@@ -27,7 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
  * There are limitations with what is supported by PyWinRM. These are highlighted in
  * tests marked as "WIP" (see individual tests).
  * 
- * See Apache Brooklyn documentation: https://github.com/apache/incubator-brooklyn/blob/master/docs/guide/yaml/winrm/index.md
+ * See Apache Brooklyn documentation: https://github.com/apache/brooklyn-docs/blob/master/guide/blueprints/winrm/index.md
  * Please contact the Apache Brooklyn community (or update their docs) if you encounter  
  * new situations, or change the behaviour of existing use-cases.
  */

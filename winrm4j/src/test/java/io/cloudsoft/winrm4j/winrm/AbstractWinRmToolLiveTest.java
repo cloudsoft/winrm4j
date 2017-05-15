@@ -31,7 +31,7 @@ import io.cloudsoft.winrm4j.client.WinRmClientContext;
 /**
  * Tests execution of commands (batch and powershell) on Windows over WinRM.
  * 
- * See Apache Brooklyn documentation: https://github.com/apache/incubator-brooklyn/blob/master/docs/guide/yaml/winrm/index.md
+ * See Apache Brooklyn documentation: https://github.com/apache/brooklyn-docs/blob/master/guide/blueprints/winrm/index.md
  * Please contact the Apache Brooklyn community (or update their docs) if you encounter  
  * new situations, or change the behaviour of existing use-cases.
  */
