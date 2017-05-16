@@ -132,7 +132,14 @@ public class WinRmClientRecordedTest {
 
             String contentType = request.getHeader("Content-Type");
             assertEquals(contentType, "application/soap+xml; action=\"" + next.getAction() + "\"; charset=UTF-8");
-            CompareMatcher.isIdenticalTo(next.getRequest())
+
+            // Similar comparison is when all differences that have been found are recoverable
+            // Namespace prefix differences are recoverable (see http://xmlunit.sourceforge.net/userguide/html/ar01s03.html#docleveldiff)
+            // For example the following are similar, but not identical:
+            // <ns1:a xmlns:ns1="test" />
+            // vs
+            // <a xmlns="test" />
+            CompareMatcher.isSimilarTo(next.getRequest())
                 .throwComparisonFailure()
                 .ignoreWhitespace()
                 .matches(requestDoc.getFirstChild());
