@@ -25,8 +25,6 @@ public class CliClient {
         int exitCode = 999;
         try (ShellCommand shell = client.createShell()){
             exitCode = shell.execute(cmd, new PrintWriter(new OutputStreamWriter(System.out)), new PrintWriter(new OutputStreamWriter(System.err)));
-        } finally {
-            client.disconnect();
         }
         System.exit(exitCode);
     }

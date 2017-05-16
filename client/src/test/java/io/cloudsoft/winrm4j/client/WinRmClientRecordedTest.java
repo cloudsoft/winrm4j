@@ -71,7 +71,8 @@ public class WinRmClientRecordedTest {
     }
 
     private void doRequest(URL url) {
-        WinRmClient.Builder builder = WinRmClient.builder(url, AuthSchemes.BASIC);
+        WinRmClientBuilder builder = WinRmClient.builder(url);
+        builder.authenticationScheme(AuthSchemes.BASIC);
 
         WinRmClient client = builder.build();
 
@@ -79,10 +80,8 @@ public class WinRmClientRecordedTest {
         StringWriter err = new StringWriter();
         int code;
 
-        try {
-            code = client.command("echo myline", out, err);
-        } finally {
-            client.disconnect();
+        try (ShellCommand shell = client.createShell()) {
+            code = shell.execute("echo myline", out, err);
         }
 
         assertEquals(out.toString(), "myline\r\n");
