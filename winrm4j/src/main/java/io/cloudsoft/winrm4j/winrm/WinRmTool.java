@@ -245,7 +245,7 @@ public class WinRmTool {
         try (ShellCommand shell = client.createShell()) {
             int code = shell.execute(command, out, err);
             WinRmToolResponse winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
-            winRmToolResponse.setNumberOfReceiveCalls(client.getNumberOfReceiveCalls());
+            winRmToolResponse.setNumberOfReceiveCalls(shell.getNumberOfReceiveCalls());
             return winRmToolResponse;
         }
     }

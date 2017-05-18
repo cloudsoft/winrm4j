@@ -195,12 +195,14 @@ public class WinRmClient {
         return initInstanceShell().execute(cmd, out, err);
     }
 
-    /**
-     * @deprecated since 0.6.0. Exposed for tests only. Will be removed.
-     */
+    /** @deprecated since 0.6.0. Implementation detail, access will be removed in future versions. */
     @Deprecated
     public int getNumberOfReceiveCalls() {
-        return shellCommand.getNumberOfReceiveCalls();
+        if (shellCommand == null) {
+            return 0;
+        } else {
+            return shellCommand.getNumberOfReceiveCalls();
+        }
     }
 
     private static void initializeClientAndService(WinRm winrm, WinRmClientBuilder builder) {
