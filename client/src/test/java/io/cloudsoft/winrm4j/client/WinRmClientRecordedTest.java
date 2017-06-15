@@ -71,7 +71,8 @@ public class WinRmClientRecordedTest {
     }
 
     private void doRequest(URL url) {
-        WinRmClient.Builder builder = WinRmClient.builder(url, AuthSchemes.BASIC);
+        WinRmClientBuilder builder = WinRmClient.builder(url);
+        builder.authenticationScheme(AuthSchemes.BASIC);
 
         WinRmClient client = builder.build();
 
@@ -79,10 +80,8 @@ public class WinRmClientRecordedTest {
         StringWriter err = new StringWriter();
         int code;
 
-        try {
-            code = client.command("echo myline", out, err);
-        } finally {
-            client.disconnect();
+        try (ShellCommand shell = client.createShell()) {
+            code = shell.execute("echo myline", out, err);
         }
 
         assertEquals(out.toString(), "myline\r\n");
@@ -132,7 +131,14 @@ public class WinRmClientRecordedTest {
 
             String contentType = request.getHeader("Content-Type");
             assertEquals(contentType, "application/soap+xml; action=\"" + next.getAction() + "\"; charset=UTF-8");
-            CompareMatcher.isIdenticalTo(next.getRequest())
+
+            // Similar comparison is when all differences that have been found are recoverable
+            // Namespace prefix differences are recoverable (see http://xmlunit.sourceforge.net/userguide/html/ar01s03.html#docleveldiff)
+            // For example the following are similar, but not identical:
+            // <ns1:a xmlns:ns1="test" />
+            // vs
+            // <a xmlns="test" />
+            CompareMatcher.isSimilarTo(next.getRequest())
                 .throwComparisonFailure()
                 .ignoreWhitespace()
                 .matches(requestDoc.getFirstChild());

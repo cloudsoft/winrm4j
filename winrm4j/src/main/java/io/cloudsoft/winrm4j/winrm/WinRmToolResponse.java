@@ -24,10 +24,13 @@ public class WinRmToolResponse {
         return statusCode;
     }
 
+    /** @deprecated since 0.6.0. Implementation detail, access will be removed in future versions */
     public void setNumberOfReceiveCalls(int numberOfReceiveCalls) {
         this.numberOfReceiveCalls = numberOfReceiveCalls;
     }
 
+    /** @deprecated since 0.6.0. Implementation detail, access will be removed in future versions */
+    @Deprecated
     public int getNumberOfReceiveCalls() {
         return numberOfReceiveCalls;
     }

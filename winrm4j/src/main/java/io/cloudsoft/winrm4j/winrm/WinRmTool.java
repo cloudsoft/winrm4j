@@ -13,7 +13,9 @@ import org.apache.http.client.config.AuthSchemes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.cloudsoft.winrm4j.client.ShellCommand;
 import io.cloudsoft.winrm4j.client.WinRmClient;
+import io.cloudsoft.winrm4j.client.WinRmClientBuilder;
 import io.cloudsoft.winrm4j.client.WinRmClientContext;
 
 /**
@@ -207,7 +209,8 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executeCommand(String command) {
-        WinRmClient.Builder builder = WinRmClient.builder(address, authenticationScheme);
+        WinRmClientBuilder builder = WinRmClient.builder(address);
+        builder.authenticationScheme(authenticationScheme);
         if (operationTimeout != null) {
             builder.operationTimeout(operationTimeout);
         }
@@ -239,13 +242,11 @@ public class WinRmTool {
         StringWriter out = new StringWriter();
         StringWriter err = new StringWriter();
 
-        try {
-            int code = client.command(command, out, err);
+        try (ShellCommand shell = client.createShell()) {
+            int code = shell.execute(command, out, err);
             WinRmToolResponse winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
-            winRmToolResponse.setNumberOfReceiveCalls(client.getNumberOfReceiveCalls());
+            winRmToolResponse.setNumberOfReceiveCalls(shell.getNumberOfReceiveCalls());
             return winRmToolResponse;
-        } finally {
-            client.disconnect();
         }
     }
 
