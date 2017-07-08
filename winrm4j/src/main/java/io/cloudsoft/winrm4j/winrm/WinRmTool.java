@@ -1,6 +1,8 @@
 package io.cloudsoft.winrm4j.winrm;
 
+import java.io.Reader;
 import java.io.StringWriter;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
@@ -81,9 +83,15 @@ public class WinRmTool {
             return this;
         }
 
-        public Builder setAuthenticationScheme(String authenticationScheme) {
+        public Builder authenticationScheme(String authenticationScheme) {
             this.authenticationScheme = authenticationScheme;
             return this;
+        }
+
+        /** @deprecated since 0.5.0. Use {@link #authenticationScheme(String)} instead. */
+        @Deprecated
+        public Builder setAuthenticationScheme(String authenticationScheme) {
+            return authenticationScheme(authenticationScheme);
         }
 
         public Builder disableCertificateChecks(boolean disableCertificateChecks) {
@@ -180,7 +188,24 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executeCommand(List<String> commands) {
-    	return executeCommand(joinCommands(commands));
+        return executeCommand(joinCommands(commands));
+    }
+
+    /**
+     * Executes a Native Windows commands.
+     * 
+     * Current implementation is to concatenate the commands using <code>" & "</code>.
+     * 
+     * Consider instead uploading a script file, and then executing that as a one-line command.
+     * 
+     * WARN doesn't work against win12
+     *
+     * @see {@link #executeCommand(String)} for limitations, e.g. about command length.
+     * 
+     * @since 0.6.0
+     */
+    public int executeCommand(List<String> commands, Reader in, Writer out, Writer err) {
+        return executeCommand(joinCommands(commands), in, out, err);
     }
 
     /**
@@ -209,6 +234,26 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executeCommand(String command) {
+        StringWriter out = new StringWriter();
+        StringWriter err = new StringWriter();
+
+        WinRmToolResponse statusCode = executeCommandInternal(command, null, out, err);
+
+        WinRmToolResponse winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), statusCode.getStatusCode());
+        winRmToolResponse.setNumberOfReceiveCalls(statusCode.getNumberOfReceiveCalls());
+        return winRmToolResponse;
+    }
+
+    /** 
+     * WARN doesn't work against win12
+     * 
+     * @since 0.6.0
+     */
+    public int executeCommand(String command, Reader in, Writer out, Writer err) {
+        return executeCommandInternal(command, in, out, err).getStatusCode();
+    }
+
+    private WinRmToolResponse executeCommandInternal(String command, /* @Nullable */ Reader in, Writer out, Writer err) {
         WinRmClientBuilder builder = WinRmClient.builder(address);
         builder.authenticationScheme(authenticationScheme);
         if (operationTimeout != null) {
@@ -239,12 +284,10 @@ public class WinRmTool {
 
         WinRmClient client = builder.build();
 
-        StringWriter out = new StringWriter();
-        StringWriter err = new StringWriter();
-
         try (ShellCommand shell = client.createShell()) {
-            int code = shell.execute(command, out, err);
-            WinRmToolResponse winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
+            int code = shell.execute(command, in, out, err);
+            // Once numberOfReceiveCalls is removed return just the exit code, without a wrapper object
+            WinRmToolResponse winRmToolResponse = new WinRmToolResponse("", "", code);
             winRmToolResponse.setNumberOfReceiveCalls(shell.getNumberOfReceiveCalls());
             return winRmToolResponse;
         }
@@ -260,6 +303,19 @@ public class WinRmTool {
     }
 
     /**
+     * Executes a Power Shell command.
+     * It is creating a new Shell on the destination host each time it is being called.
+     * 
+     * WARN doesn't work against win12
+     *
+     * @since 0.6
+     */
+
+    public int executePs(String psCommand, Reader in, Writer out, Writer err) {
+        return executeCommand(compilePs(psCommand), in, out, err);
+    }
+
+    /**
      * Execute a list of Power Shell commands as one command.
      * The method translates the list of commands to a single String command with a 
      * <code>"\r\n"</code> delimiter and a terminating one.
@@ -268,6 +324,21 @@ public class WinRmTool {
      */
     public WinRmToolResponse executePs(List<String> commands) {
         return executeCommand(compilePs(joinPs(commands)));
+    }
+
+    /**
+     * Execute a list of Power Shell commands as one command.
+     * The method translates the list of commands to a single String command with a 
+     * <code>"\r\n"</code> delimiter and a terminating one.
+     * 
+     * Consider instead uploading a script file, and then executing that as a one-line command.
+     * 
+     * WARN doesn't work against win12
+     * 
+     * @since 0.6
+     */
+    public int executePs(List<String> commands, Reader in, Writer out, Writer err) {
+        return executeCommand(compilePs(joinPs(commands)), in, out, err);
     }
 
     private String compilePs(String psScript) {

@@ -1,9 +1,16 @@
 package io.cloudsoft.winrm4j.winrm;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.io.PipedReader;
+import java.io.PipedWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.lang.reflect.Method;
+import java.nio.channels.InterruptedByTimeoutException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -384,6 +391,51 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     }
     
     @Test(groups="Live")
+    public void testCustomStreams() throws Exception {
+        StringWriter out = new StringWriter();
+        StringWriter err = new StringWriter();
+        StringBuilder inBuff = new StringBuilder();
+        for (int i = 0; i < 1000; i++) {
+            inBuff.append("line " + i + "\r\n");
+        }
+        StringReader in = new StringReader(inBuff.toString());
+        int result = winRmTool.executePs("tee -FilePath tmpfile", in, out, err);
+        assertEquals(result, 0, "out=" + out.toString() + "\nerr=" + err.toString());
+        assertEquals(out.toString(), inBuff.toString(), "err=" + err.toString());
+    }
+    
+    @Test(groups="Live")
+    public void testCustomStreamsAsync() throws Exception {
+        PipedReader in = new PipedReader();
+        PipedWriter inWriter = new PipedWriter(in);
+        StringWriter out = new StringWriter();
+        StringWriter err = new StringWriter();
+
+        Thread execute = new Thread() {
+            @Override
+            public void run() {
+                winRmTool.executePs("tee -FilePath tmpfile", in, out, err);
+            }
+        };
+        execute.start();
+
+        assertEquals(out.toString(), "");
+
+        String input = "my input to send\r\n";
+        inWriter.append(input);
+        succeedsEventually(() -> {
+            assertEquals(out.toString(), input);
+        });
+        assertTrue(execute.isAlive());
+
+        inWriter.close();
+        succeedsEventually(() -> {
+            assertFalse(execute.isAlive());
+        });
+        assertEquals(out.toString(), input);
+    }
+    
+    @Test(groups="Live")
     public void testToolReuse() throws Exception {
         WinRmTool winRmTool = connect();
         
@@ -486,4 +538,23 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
         Futures.allAsList(results).get(TIMEOUT_MINS, TimeUnit.MINUTES);
     }
 
+    private static void succeedsEventually(Runnable r) throws InterruptedException {
+        long start = System.currentTimeMillis();
+        long maxWait = start + 10000;
+        boolean success = false;
+        AssertionError lastError = null;
+        while (maxWait > System.currentTimeMillis()) {
+            try {
+                r.run();
+                success = true;
+                break;
+            } catch (AssertionError e) {
+                lastError = e;
+                Thread.sleep(100);
+            }
+        }
+        if (!success) {
+            throw lastError;
+        }
+    }
 }
