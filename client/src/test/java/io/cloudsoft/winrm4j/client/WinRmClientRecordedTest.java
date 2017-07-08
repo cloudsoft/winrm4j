@@ -92,7 +92,7 @@ public class WinRmClientRecordedTest {
     private static class RecordedSessionDispatcher extends Dispatcher {
 
         String serverUrl;
-        String messageId;
+        boolean initialisedRecordedSession;
         Iterator<Item> requests;
         String recordingName;
         boolean hasErrors;
@@ -123,11 +123,15 @@ public class WinRmClientRecordedTest {
 
         private MockResponse doDispatch(RecordedRequest request) {
             Document requestDoc = parseRequest(request);
-            if (messageId == null) {
+            if (!initialisedRecordedSession) {
                 initRecordedSession(requestDoc);
+                initialisedRecordedSession = true;
             }
-
             Item next = requests.next();
+
+            String messageId = getMessageId(requestDoc);
+            setMessageId(next.request, messageId);
+            setRelatesToMessageId(next.response, messageId);
 
             String contentType = request.getHeader("Content-Type");
             assertEquals(contentType, "application/soap+xml; action=\"" + next.getAction() + "\"; charset=UTF-8");
@@ -151,8 +155,7 @@ public class WinRmClientRecordedTest {
         }
 
         private void initRecordedSession(Document requestDoc) {
-            messageId = getMessageId(requestDoc);
-            Document sessionDoc = parseSession(loadRecordedSession(recordingName, messageId, serverUrl));
+            Document sessionDoc = parseSession(loadRecordedSession(recordingName, serverUrl));
             requests = new RecordedSessionIterable(sessionDoc).iterator();
         }
 
@@ -179,9 +182,9 @@ public class WinRmClientRecordedTest {
         return (Element)el;
     }
 
-    private static String loadRecordedSession(String recordingName, String messageId, String serverUrl) {
+    private static String loadRecordedSession(String recordingName, String serverUrl) {
         String xml = loadResource(recordingName);
-        return xml.replace("${messageId}", messageId).replace("${serviceUrl}", serverUrl);
+        return xml.replace("${serviceUrl}", serverUrl);
     }
 
     private static String loadResource(String recordingName) {
@@ -211,8 +214,22 @@ public class WinRmClientRecordedTest {
     }
 
     private static String getMessageId(Document doc) {
-        Element messageId = (Element) doc.getElementsByTagNameNS("http://schemas.xmlsoap.org/ws/2004/08/addressing", "MessageID").item(0);
+        Element messageId = getMessageElement(doc.getDocumentElement());
         return messageId.getTextContent();
+    }
+
+    private static void setMessageId(Element root, String id) {
+        Element messageId = getMessageElement(root);
+        messageId.setTextContent(id);
+    }
+
+    public static Element getMessageElement(Element root) {
+        return (Element) root.getElementsByTagNameNS("http://schemas.xmlsoap.org/ws/2004/08/addressing", "MessageID").item(0);
+    }
+
+    private static void setRelatesToMessageId(Element root, String id) {
+        Element relatesTo = (Element) root.getElementsByTagNameNS("http://schemas.xmlsoap.org/ws/2004/08/addressing", "RelatesTo").item(0);
+        relatesTo.setTextContent(id);
     }
 
     private static class Item {

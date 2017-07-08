@@ -1,17 +1,13 @@
 package io.cloudsoft.winrm4j.client;
 
 import java.lang.reflect.Field;
-import java.util.Arrays;
 
-import javax.xml.ws.WebServiceFeature;
 import javax.xml.ws.spi.Provider;
 import javax.xml.ws.spi.ServiceDelegate;
 
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
-import org.apache.cxf.feature.Feature;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
-import org.apache.cxf.ws.addressing.WSAddressingFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +93,6 @@ public class WinRmFactory {
         factory.getClientFactoryBean().getServiceFactory().setWsdlURL(WinRmService.WSDL_LOCATION);
         factory.setServiceName(WinRmService.SERVICE);
         factory.setEndpointName(WinRmService.WinRmPort);
-        factory.setFeatures(Arrays.asList((Feature)newMemberSubmissionAddressingFeature()));
         factory.setBus(bus);
         return factory.create(WinRm.class);
     }
@@ -107,33 +102,7 @@ public class WinRmFactory {
     }
 
     private static WinRm doCreateService_2_GetClient(WinRmService service) {
-        return service.getWinRmPort(
-                // * Adds WS-Addressing headers and uses the submission spec namespace
-                //   http://schemas.xmlsoap.org/ws/2004/08/addressing
-                newMemberSubmissionAddressingFeature());
-    }
-    
-    private static WebServiceFeature newMemberSubmissionAddressingFeature() {
-        /*
-         * Requires the following dependency so the feature is visible to maven.
-         * But is it included in the IBM dist?
-<dependency>
-    <groupId>com.sun.xml.ws</groupId>
-    <artifactId>jaxws-rt</artifactId>
-    <version>2.2.10</version>
-</dependency>
-         */
-        try {
-            // com.ibm.websphere.wsaddressing.jaxws21.SubmissionAddressingFeature for IBM java (available only in WebSphere?)
-
-            WSAddressingFeature webServiceFeature = new WSAddressingFeature();
-//            webServiceFeature.setResponses(WSAddressingFeature.AddressingResponses.ANONYMOUS);
-            webServiceFeature.setAddressingRequired(true);
-
-            return webServiceFeature;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return service.getWinRmPort();
     }
 
 }
