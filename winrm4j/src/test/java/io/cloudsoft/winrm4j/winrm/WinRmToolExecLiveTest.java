@@ -33,7 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture;
  */
 public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
 
-	private static final Logger LOG = Logger.getLogger(WinRmToolExecLiveTest.class.getName());
+    private static final Logger LOG = Logger.getLogger(WinRmToolExecLiveTest.class.getName());
 
     @Test(groups="Live")
     public void testExecScript() throws Exception {
@@ -385,8 +385,6 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
     
     @Test(groups="Live")
     public void testToolReuse() throws Exception {
-        WinRmTool winRmTool = connect();
-        
         Stopwatch stopwatch = Stopwatch.createStarted();
         WinRmToolResponse response = executePs(winRmTool, "echo myline");
         assertSucceeded("echo myline", response, "myline", "", stopwatch);
@@ -398,32 +396,24 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
 
     @Test(groups="Live")
     public void testToolConcurrentReuse() throws Exception {
-        // There are built-in retries at two levels in the code:
-        // * executePs will retry 10 times
-        // * each low-level WinRm command will retry 16 times
-        // * WinRm.delete is called in a finally, again retrying for 16 times
-        // As a result each executePs call could retry requests for a total of
-        // 10 x (16 + 16) = 320 times PER ITERATION
-        // That would result in 3200 failing requests for the tasks below!
-        final int NUM_RUNS = 10;
+        final int NUM_RUNS = 20;
         final int TIMEOUT_MINS = 30;
         final AtomicInteger counter = new AtomicInteger();
 
-    	Stopwatch stopwatch = Stopwatch.createStarted();
-        final WinRmTool winRmTool = connect();
+        Stopwatch stopwatch = Stopwatch.createStarted();
         LOG.info("Connected to winRmTool in "+makeTimeStringRounded(stopwatch)+"; now executing commands");
-        
+
         List<ListenableFuture<?>> results = Lists.newArrayList();
         for (int i = 0; i < NUM_RUNS; i++) {
             results.add(executor.submit(new Callable<Void>() {
                 public Void call() throws Exception {
-                	String line = "myline" + makeRandomString(8);
-                	Stopwatch stopwatch = Stopwatch.createStarted();
+                    String line = "myline" + makeRandomString(8);
+                    Stopwatch stopwatch = Stopwatch.createStarted();
                     try {
-    			        WinRmToolResponse response = executePs(winRmTool, "echo " + line);
-    			        assertSucceeded("echo " + line, response, line, "", stopwatch);
+                        WinRmToolResponse response = executePs(winRmTool, "echo " + line);
+                        assertSucceeded("echo " + line, response, line, "", stopwatch);
                         LOG.info("Executed `echo "+line+"` in "+makeTimeStringRounded(stopwatch)+", in thread "+Thread.currentThread()+"; total "+counter.incrementAndGet()+" methods done");
-    			        return null;
+                        return null;
                     } catch (Exception e) {
                         LOG.log(Level.SEVERE, "Execute failed for `echo "+line+"` after "+makeTimeStringRounded(stopwatch)+", in thread "+Thread.currentThread()+"; total "+counter.incrementAndGet()+" methods done");
                         throw e;

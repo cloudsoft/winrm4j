@@ -20,7 +20,12 @@ import io.cloudsoft.winrm4j.client.WinRmClientContext;
 
 /**
  * Tool for executing commands over WinRM.
+ * 
+ * This class is not guaranteed to be thread safe.
  */
+// Current implementation is thread safe because it creates a client per execute call
+// but future implementations might re-use the client.
+// TODO Create a client per WinRmTool
 public class WinRmTool {
     private static final Logger LOG = LoggerFactory.getLogger(WinRmTool.class.getName());
 
