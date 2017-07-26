@@ -1,7 +1,6 @@
 package io.cloudsoft.winrm4j.winrm;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 import java.util.logging.Logger;
 
@@ -19,30 +18,35 @@ public class WinRmToolOperationTimeoutLiveTest extends AbstractWinRmToolLiveTest
 
     @Test(groups="Live")
     public void testSpecifiedRequestTimeout() throws Exception {
-        final Long operationTimeoutInSeconds = 10l; // Put WinRmClient.Builder.DEFAULT_OPERATION_TIMEOUT / 1000 to test the default value
-        String ps = String.format("Start-Sleep -s %d\r\nWrite-Host Test Completed", operationTimeoutInSeconds - 5);
+        final Long operationTimeoutInSeconds = 10l;
+        long sleepPeriod = operationTimeoutInSeconds - 5;
+        int pollRetries = 1;
 
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        WinRmTool winRmTool = winRmTool().build();
-        winRmTool.setOperationTimeout(operationTimeoutInSeconds * 1000l);
-        WinRmToolResponse response = winRmTool.executePs(ps);
-        String msg = "statusCode="+response.getStatusCode()+"; out="+response.getStdOut()+"; err="+response.getStdErr();
-        LOG.info("Executed in "+makeTimeStringRounded(stopwatch)+" (asserting success): "+msg+"; cmd="+ps);
-        assertEquals(response.getStatusCode(), 0, msg);
-        assertTrue(response.getStdOut().endsWith("Test Completed\n"), msg);
+        doTestOperationTimeout(operationTimeoutInSeconds, sleepPeriod, pollRetries);
     }
 
     @Test(groups = "Live")
     public void testExceedingSpecifiedOperationTimeout() throws Exception {
-        final Long operationTimeoutInSeconds = 5l; // Put WinRmClient.Builder.DEFAULT_OPERATION_TIMEOUT / 1000 to test the default value
-        WinRmTool winRmTool = winRmTool().build();
-        winRmTool.setOperationTimeout(operationTimeoutInSeconds * 1000l);
+        final Long operationTimeoutInSeconds = 5l;
+        long sleepPeriod = 4 * operationTimeoutInSeconds + 1;
+        int pollRetries = 5;
 
-        WinRmToolResponse response = winRmTool.executePs(String.format("Start-Sleep -s %d\r\nWrite-Host Test Completed", 4 * operationTimeoutInSeconds));
+        doTestOperationTimeout(operationTimeoutInSeconds, sleepPeriod, pollRetries);
+    }
 
+    private void doTestOperationTimeout(long operationTimeoutInSeconds, long sleepPeriod, int pollRetries) throws Exception {
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        WinRmTool winRmTool = createWinRm();
+        winRmTool.setOperationTimeout(operationTimeoutInSeconds * 1000);
+
+        String ps = String.format("Start-Sleep -s %d\r\nWrite-Host Test Completed", sleepPeriod);
+        WinRmToolResponse response = winRmTool.executePs(ps);
+        String msg = "statusCode="+response.getStatusCode()+"; out="+response.getStdOut()+"; err="+response.getStdErr();
+        LOG.info("Executed in "+makeTimeStringRounded(stopwatch)+" (asserting success): "+msg+"; cmd="+ps);
+        assertEquals(response.getStatusCode(), 0, msg);
         assertEquals(response.getStdOut(), "Test Completed\n");
         assertEquals(response.getStdErr(), "");
         // TODO The test is time–dependent, also the only reason to have getNumberOfReceiveCalls. Can we assert the behaviour in another way?
-        assertTrue(response.getNumberOfReceiveCalls() >= 4);
+        assertEquals(response.getNumberOfReceiveCalls(), pollRetries);
     }
 }
