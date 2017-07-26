@@ -1,11 +1,14 @@
 package io.cloudsoft.winrm4j.client;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.util.List;
 
 import javax.xml.ws.soap.SOAPFaultException;
 
+import org.apache.commons.codec.Charsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.NodeList;
@@ -15,6 +18,7 @@ import io.cloudsoft.winrm4j.client.shell.CommandStateType;
 import io.cloudsoft.winrm4j.client.shell.DesiredStreamType;
 import io.cloudsoft.winrm4j.client.shell.Receive;
 import io.cloudsoft.winrm4j.client.shell.ReceiveResponse;
+import io.cloudsoft.winrm4j.client.shell.Send;
 import io.cloudsoft.winrm4j.client.shell.StreamType;
 import io.cloudsoft.winrm4j.client.wsman.CommandResponse;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
@@ -25,6 +29,47 @@ import io.cloudsoft.winrm4j.client.wsman.SelectorType;
 import io.cloudsoft.winrm4j.client.wsman.Signal;
 
 public class ShellCommand implements AutoCloseable {
+    private static class StreamSender implements Runnable {
+        // max amount to send
+        private static final int BUFFER_LENGTH = 4096;
+
+        ShellCommand shell;
+        String commandId;
+        Reader in;
+
+        char[] buffer = new char[BUFFER_LENGTH];
+
+
+
+        public StreamSender(ShellCommand shellCommand, String commandId, Reader in) {
+            this.shell = shellCommand;
+            this.commandId = commandId;
+            this.in = in;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                int read;
+                try {
+                    read = in.read(buffer);
+                } catch (IOException e) {
+                    LOG.warn("Aborting stdin send for command ID " + commandId + " due to a read exception.", e);
+                    // Leaving the process running 
+                    throw new IllegalStateException(e);
+                }
+                if (read > 0) {
+                    shell.send(new String(buffer, 0, read), commandId);
+                } else if (read == -1) {
+                    shell.send(null, commandId);
+                    return;
+                }
+            }
+        }
+
+    }
+
+
     private static final Logger LOG = LoggerFactory.getLogger(ShellCommand.class.getName());
 
     private static final String COMMAND_STATE_DONE = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/CommandState/Done";
@@ -41,6 +86,8 @@ public class ShellCommand implements AutoCloseable {
      *   Possible causes are: the specified ShellId is incorrect or the shell no longer exi
      */
     private static final String WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND = "2150858843";
+    
+    private static final Charset DEFAULT_SHELL_ENCODING = Charsets.UTF_8;
 
     private WinRm winrm;
     private SelectorSetType shellSelector;
@@ -67,8 +114,41 @@ public class ShellCommand implements AutoCloseable {
     }
 
     public int execute(String cmd, Writer out, Writer err) {
+        return execute(cmd, null, out, err);
+    }
+
+    /**
+     * WARN doesn't work against win12
+     *
+     * @since 0.6.0
+     */
+    public int execute(String cmd, Reader in, Writer out, Writer err) {
         WinRmClient.checkNotNull(cmd, "command");
 
+        numberOfReceiveCalls = 0;
+        String commandId = command(cmd);
+
+        Thread stdinSender = null;
+        if (in != null) {
+            stdinSender = new Thread(new StreamSender(this, commandId, in));
+            stdinSender.start();
+        }
+
+        try {
+            return receive(commandId, out, err);
+        } finally {
+            try {
+                if (stdinSender != null) {
+                    stdinSender.interrupt();
+                }
+                releaseCommand(commandId);
+            } catch (SOAPFaultException soapFault) {
+                assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
+            }
+        }
+    }
+
+    private String command(String cmd) {
         final CommandLine cmdLine = new CommandLine();
         cmdLine.setCommand(cmd);
         final OptionSetType optSetCmd = new OptionSetType();
@@ -81,24 +161,27 @@ public class ShellCommand implements AutoCloseable {
         optSkipCmdShell.setValue("FALSE");
         optSetCmd.getOption().add(optSkipCmdShell);
 
-        numberOfReceiveCalls = 0;
 
         CommandResponse cmdResponse = winrm.command(cmdLine, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
-
-        String commandId = cmdResponse.getCommandId();
-
-        try {
-            return receiveCommand(commandId, out, err);
-        } finally {
-            try {
-                releaseCommand(commandId);
-            } catch (SOAPFaultException soapFault) {
-                assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
-            }
-        }
+        return cmdResponse.getCommandId();
     }
 
-    private int receiveCommand(String commandId, Writer out, Writer err) {
+    private void send(String cmd, String commandId) {
+        final Send send = new Send();
+        StreamType stdin = new StreamType();
+        stdin.setCommandId(commandId);
+        stdin.setName("stdin");
+        if (cmd != null) {
+            stdin.setValue(cmd.getBytes(DEFAULT_SHELL_ENCODING));
+        } else {
+            stdin.setEnd(true);
+        }
+        send.getStream().add(stdin);
+
+        winrm.send(send, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+    }
+
+    private int receive(String commandId, Writer out, Writer err) {
         while(true) {
             final Receive receive = new Receive();
             DesiredStreamType stream = new DesiredStreamType();
@@ -163,7 +246,7 @@ public class ShellCommand implements AutoCloseable {
                 try {
                     //TODO use passed locale?
                     if (value.length > 0) {
-                        out.write(new String(value));
+                        out.write(new String(value, DEFAULT_SHELL_ENCODING));
                     }
                     if (Boolean.TRUE.equals(s.isEnd())) {
                         out.close();
@@ -176,7 +259,7 @@ public class ShellCommand implements AutoCloseable {
                 try {
                     //TODO use passed locale?
                     if (value.length > 0) {
-                        err.write(new String(value));
+                        err.write(new String(value, DEFAULT_SHELL_ENCODING));
                     }
                     if (Boolean.TRUE.equals(s.isEnd())) {
                         err.close();

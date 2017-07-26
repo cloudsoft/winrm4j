@@ -1,4 +1,3 @@
-
 package io.cloudsoft.winrm4j.service.shell;
 
 import javax.xml.bind.annotation.XmlAccessType;
