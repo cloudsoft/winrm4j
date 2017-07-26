@@ -6,15 +6,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-import javax.xml.ws.Action;
-import javax.xml.ws.BindingProvider;
 import javax.xml.ws.WebServiceException;
 import javax.xml.ws.soap.SOAPFaultException;
 
-import org.apache.cxf.ws.addressing.AddressingProperties;
-import org.apache.cxf.ws.addressing.AttributedURIType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,9 +27,6 @@ class RetryingProxyHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        //TODO use different instances of service http://cxf.apache.org/docs/developing-a-consumer.html#DevelopingaConsumer-SettingConnectionPropertieswithContexts
-        setActionToContext(method);
-
         // Don't retry the "command" - could lead to unexpected side effects of having the script run multiple times.
         if (method.getName().equals("command")) {
             return method.invoke(winrm, args);
@@ -73,31 +65,6 @@ class RetryingProxyHandler implements InvocationHandler {
             }
         }
         throw new RuntimeException("failed task " + method.getName(), exceptions.get(0));
-    }
-
-    // TODO fix CXF to not set a wrong action https://issues.apache.org/jira/browse/CXF-4647
-    private void setActionToContext(Method method) {
-        Action action = method.getAnnotation(Action.class);
-        if (action != null && action.input() != null) {
-            AttributedURIType attrUri = new AttributedURIType();
-            attrUri.setValue(action.input());
-            AddressingProperties addrProps = getAddressingProperties((BindingProvider)winrm);
-            addrProps.setAction(attrUri);
-        }
-    }
-
-    private AddressingProperties getAddressingProperties(BindingProvider bp) {
-        String ADDR_CONTEXT = "javax.xml.ws.addressing.context";
-        Map<String, Object> reqContext = bp.getRequestContext();
-        if (reqContext==null) {
-            throw new NullPointerException("Unable to load request context; delegate load failed");
-        }
-
-        AddressingProperties addrProps = ((AddressingProperties)reqContext.get(ADDR_CONTEXT));
-        if (addrProps==null) {
-            throw new NullPointerException("Unable to load request context "+ADDR_CONTEXT+"; are the addressing classes installed (you may need <feature>cxf-ws-addr</feature> if running in osgi)");
-        }
-        return addrProps;
     }
 
     @Deprecated

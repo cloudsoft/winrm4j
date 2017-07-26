@@ -29,9 +29,8 @@ import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
-import org.apache.cxf.ws.addressing.AddressingProperties;
-import org.apache.cxf.ws.addressing.JAXWSAConstants;
-import org.apache.cxf.ws.addressing.VersionTransformer;
+import org.apache.cxf.ws.addressing.policy.MetadataConstants;
+import org.apache.cxf.ws.policy.PolicyConstants;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
@@ -41,6 +40,8 @@ import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
+import org.apache.neethi.Policy;
+import org.apache.neethi.builders.PrimitiveAssertion;
 import org.w3c.dom.Element;
 
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
@@ -235,9 +236,9 @@ public class WinRmClient {
         List<Handler> handlerChain = Arrays.<Handler>asList(new StripShellResponseHandler());
         bp.getBinding().setHandlerChain(handlerChain);
 
-        Map<String, Object> requestContext = bp.getRequestContext();
-        AddressingProperties maps = new AddressingProperties(VersionTransformer.Names200408.WSA_NAMESPACE_NAME);
-        requestContext.put(JAXWSAConstants.CLIENT_ADDRESSING_PROPERTIES, maps);
+        Policy policy = new Policy();
+        policy.addAssertion(new PrimitiveAssertion(MetadataConstants.USING_ADDRESSING_2004_QNAME));
+        bp.getRequestContext().put(PolicyConstants.POLICY_OVERRIDE, policy);
 
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint);
 
