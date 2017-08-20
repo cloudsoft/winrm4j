@@ -86,9 +86,17 @@ public class WinRmTool {
             return this;
         }
 
+        /**
+         * @deprecated since 0.6.0
+         */
+        @Deprecated
         public Builder setAuthenticationScheme(String authenticationScheme) {
             this.authenticationScheme = authenticationScheme;
             return this;
+        }
+
+        public void authenticationScheme(String authenticationScheme) {
+            this.authenticationScheme = authenticationScheme;
         }
 
         public Builder disableCertificateChecks(boolean disableCertificateChecks) {
