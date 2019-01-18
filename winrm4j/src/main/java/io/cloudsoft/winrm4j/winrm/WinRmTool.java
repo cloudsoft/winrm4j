@@ -91,12 +91,12 @@ public class WinRmTool {
          */
         @Deprecated
         public Builder setAuthenticationScheme(String authenticationScheme) {
-            this.authenticationScheme = authenticationScheme;
-            return this;
+            return authenticationScheme(authenticationScheme);
         }
 
-        public void authenticationScheme(String authenticationScheme) {
+        public Builder authenticationScheme(String authenticationScheme) {
             this.authenticationScheme = authenticationScheme;
+            return this;
         }
 
         public Builder disableCertificateChecks(boolean disableCertificateChecks) {
