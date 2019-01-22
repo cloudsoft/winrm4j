@@ -184,11 +184,11 @@ public class WinRmTool {
     /**
      * Executes a Native Windows commands.
      * 
-     * Current implementation is to concatenate the commands using <code>" & "</code>.
+     * Current implementation is to concatenate the commands using <code>" &amp; "</code>.
      * 
      * Consider instead uploading a script file, and then executing that as a one-line command.
      * 
-     * @see {@link #executeCommand(String)} for limitations, e.g. about command length.
+     * See {@link #executeCommand(String)} for limitations, e.g. about command length.
      * 
      * @since 0.2
      */
@@ -199,7 +199,7 @@ public class WinRmTool {
     /**
      * Updates operationTimeout for the next <code>executeXxx</code> call
      *
-     * @see <a href="http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.2.0.pdf>DSP0226_1.2.0.pdf</a>
+     * @see <a href="http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.2.0.pdf">DSP0226_1.2.0.pdf</a>
      * @param operationTimeout in milliseconds
      *                         default value {@link WinRmClient.Builder#DEFAULT_OPERATION_TIMEOUT}
      *                         If operations cannot be completed in a specified time,
@@ -291,7 +291,7 @@ public class WinRmTool {
 
     /**
      * Execute a list of Windows Native commands as one command.
-     * The method translates the list of commands to a single String command with a <code>" & "</code> 
+     * The method translates the list of commands to a single String command with a <code>" &amp; "</code> 
      * delimiter and a terminating one.
      * 
      * @deprecated since 0.2; instead use {@link #executeCommand(List)} to remove ambiguity
