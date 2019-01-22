@@ -5,6 +5,7 @@ import java.net.URL;
 import java.util.Map;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
 
 import org.apache.http.client.config.AuthSchemes;
 
@@ -30,7 +31,8 @@ public class WinRmClientBuilder {
 
     protected boolean disableCertificateChecks;
     protected HostnameVerifier hostnameVerifier;
-
+    protected SSLContext sslContext;
+    
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));
     }
@@ -135,6 +137,14 @@ public class WinRmClientBuilder {
         return this;
     }
 
+    /**
+     * @param sslContext override the default SSLContext
+     */
+    public WinRmClientBuilder sslContext(SSLContext sslContext) {
+    	this.sslContext = sslContext;
+    	return this;
+    }
+    
     /**
      * @param context is a shared {@link WinRmClientContext} object which allows connection
      *        reuse across {@link WinRmClient} invocations. If not set one will be created
