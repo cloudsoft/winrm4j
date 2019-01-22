@@ -99,7 +99,7 @@ public class WinRmClient {
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
      * 
-     * @deprecated since 0.6.0. Use {@link #builder(URL)} and {@link #authenticationScheme(String)}.
+     * @deprecated since 0.6.0. Use {@link #builder(URL)} and {@link Builder#authenticationScheme(String)}.
      */
     @Deprecated
     public static Builder builder(URL endpoint, String authenticationScheme) {
@@ -112,7 +112,7 @@ public class WinRmClient {
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
      * 
-     * @deprecated since 0.5.0. Use {@link #builder(String)} and {@link #authenticationScheme(String)}.
+     * @deprecated since 0.5.0. Use {@link #builder(String)} and {@link Builder#authenticationScheme(String)}.
      */
     @Deprecated
     public static Builder builder(String endpoint, String authenticationScheme) {
