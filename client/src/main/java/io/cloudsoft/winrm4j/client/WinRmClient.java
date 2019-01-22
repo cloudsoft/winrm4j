@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
@@ -214,6 +215,7 @@ public class WinRmClient {
         String domain = builder.domain;
         boolean disableCertificateChecks = builder.disableCertificateChecks;
         HostnameVerifier hostnameVerifier = builder.hostnameVerifier;
+        SSLSocketFactory sslSocketFactory = builder.sslSocketFactory;
         long receiveTimeout;
         if (builder.receiveTimeout != null) {
             receiveTimeout = builder.receiveTimeout;
@@ -284,9 +286,10 @@ public class WinRmClient {
                     }});
                     httpClient.setTlsClientParameters(tlsClientParameters);
                 }
-                if (hostnameVerifier != null) {
+                if (hostnameVerifier != null || sslSocketFactory != null) {
                 	TLSClientParameters tlsClientParameters = new TLSClientParameters();
                 	tlsClientParameters.setHostnameVerifier(hostnameVerifier);
+                	tlsClientParameters.setSSLSocketFactory(sslSocketFactory);
                 	httpClient.setTlsClientParameters(tlsClientParameters);
                 }
                 HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
