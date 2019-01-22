@@ -250,17 +250,19 @@ public class WinRmTool {
             builder.context(context);
         }
 
-        WinRmClient client = builder.build();
-
         StringWriter out = new StringWriter();
         StringWriter err = new StringWriter();
+        WinRmToolResponse winRmToolResponse;
 
-        try (ShellCommand shell = client.createShell()) {
-            int code = shell.execute(command, out, err);
-            WinRmToolResponse winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
-            winRmToolResponse.setNumberOfReceiveCalls(shell.getNumberOfReceiveCalls());
-            return winRmToolResponse;
+        try(WinRmClient client = builder.build()) {
+            try (ShellCommand shell = client.createShell()) {
+                int code = shell.execute(command, out, err);
+                winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
+                winRmToolResponse.setNumberOfReceiveCalls(shell.getNumberOfReceiveCalls());
+            }
         }
+
+        return winRmToolResponse;
     }
 
     /**
