@@ -206,7 +206,7 @@ public class ShellCommand implements AutoCloseable {
     @Override
     public void close() {
         try {
-            winrm.delete(null, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+            winrm.delete(WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
         } catch (SOAPFaultException soapFault) {
             assertFaultCode(soapFault, WSMAN_FAULT_CODE_SHELL_WAS_NOT_FOUND);
         }

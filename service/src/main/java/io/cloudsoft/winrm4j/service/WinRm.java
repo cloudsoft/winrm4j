@@ -57,6 +57,7 @@ public class WinRm {
     @WebMethod(operationName = "Delete", action = "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete")
     @WebResult(name = "DeleteResponse", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd")
     @Action(input = "http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete", output = "http://schemas.xmlsoap.org/ws/2004/09/transfer/DeleteResponse")
+    @SOAPBinding(parameterStyle = SOAPBinding.ParameterStyle.BARE)
     public void delete(
         @WebParam(name = "ResourceURI", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         String resourceURI,
