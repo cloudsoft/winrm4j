@@ -440,7 +440,7 @@ public class WinRmToolExecLiveTest extends AbstractWinRmToolLiveTest {
             if (method.getParameterTypes().length != 0) {
                 continue;
             }
-            if (method.getName().equals("testExecConcurrently")) {
+            if (method.getName().equals("testZExecConcurrently")) {
                 continue;
             }
             if (annotatn == null || !annotatn.enabled()) {
