@@ -8,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSocketFactory;
 
 import org.apache.http.client.config.AuthSchemes;
 import org.slf4j.Logger;
@@ -45,6 +46,7 @@ public class WinRmTool {
     private final String workingDirectory;
     private final Map<String, String> environment;
     private final HostnameVerifier hostnameVerifier;
+    private final SSLSocketFactory sslSocketFactory;
     private final WinRmClientContext context;
 
     public static class Builder {
@@ -59,6 +61,7 @@ public class WinRmTool {
         private String workingDirectory;
         private Map<String, String> environment;
         private HostnameVerifier hostnameVerifier;
+        private SSLSocketFactory sslSocketFactory;
         private WinRmClientContext context;
 
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
@@ -114,6 +117,11 @@ public class WinRmTool {
         	return this;
         }
 
+        public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory) {
+	        this.sslSocketFactory = sslSocketFactory;
+	        return this;
+        }
+        
         public Builder port(int port) {
             this.port = port;
             return this;
@@ -128,7 +136,7 @@ public class WinRmTool {
             return new WinRmTool(getEndpointUrl(address, useHttps, port),
                     domain, username, password, authenticationScheme,
                     disableCertificateChecks, workingDirectory,
-                    environment, hostnameVerifier,
+                    environment, hostnameVerifier, sslSocketFactory,
                     context);
         }
 
@@ -168,7 +176,7 @@ public class WinRmTool {
             String password, String authenticationScheme,
             boolean disableCertificateChecks, String workingDirectory,
             Map<String, String> environment, HostnameVerifier hostnameVerifier,
-            WinRmClientContext context) {
+            SSLSocketFactory sslSocketFactory, WinRmClientContext context) {
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
         this.domain = domain;
@@ -178,6 +186,7 @@ public class WinRmTool {
         this.workingDirectory = workingDirectory;
         this.environment = environment;
         this.hostnameVerifier = hostnameVerifier;
+        this.sslSocketFactory = sslSocketFactory;
         this.context = context;
     }
 
@@ -236,6 +245,9 @@ public class WinRmTool {
         }
         if (hostnameVerifier != null) {
         	builder.hostnameVerifier(hostnameVerifier);
+        }
+        if (sslSocketFactory != null) {
+        	builder.sslSocketFactory(sslSocketFactory);
         }
         if (workingDirectory != null) {
             builder.workingDirectory(workingDirectory);
