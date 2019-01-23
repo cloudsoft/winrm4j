@@ -6,6 +6,7 @@ import java.util.Map;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.SSLContext;
 
 import org.apache.http.client.config.AuthSchemes;
 
@@ -32,6 +33,8 @@ public class WinRmClientBuilder {
     protected boolean disableCertificateChecks;
     protected HostnameVerifier hostnameVerifier;
     protected SSLSocketFactory sslSocketFactory;
+    
+    protected SSLContext sslContext;
     
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));
@@ -138,6 +141,7 @@ public class WinRmClientBuilder {
     }
 
     /**
+<<<<<<< HEAD
      * @param sslSocketFactory SSL Socket Factory to use
      */
     public WinRmClientBuilder sslSocketFactory(SSLSocketFactory sslSocketFactory) {
@@ -146,6 +150,17 @@ public class WinRmClientBuilder {
     }
     
     /**
+||||||| merged common ancestors
+=======
+     * @param sslContext override the default SSLContext
+     */
+    public WinRmClientBuilder sslContext(SSLContext sslContext) {
+    	this.sslContext = sslContext;
+    	return this;
+    }
+    
+    /**
+>>>>>>> a172a58a2fe5b6176690470b75ae5b30933abf7f
      * @param context is a shared {@link WinRmClientContext} object which allows connection
      *        reuse across {@link WinRmClient} invocations. If not set one will be created
      *        for each {@link WinRmClient} instance.
