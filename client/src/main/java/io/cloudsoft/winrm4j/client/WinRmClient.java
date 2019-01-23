@@ -56,7 +56,7 @@ import io.cloudsoft.winrm4j.client.wsman.OptionType;
 /**
  * TODO confirm if commands can be called in parallel in one shell (probably not)!
  */
-public class WinRmClient {
+public class WinRmClient implements AutoCloseable {
     static final int MAX_ENVELOPER_SIZE = 153600;
     static final String RESOURCE_URI = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd";
 
@@ -374,6 +374,15 @@ public class WinRmClient {
             if (cleanupContext) {
                 context.getBus().shutdown(true);
             }
+        }
+    }
+
+    @Override
+    public void close() {
+        if (context == null) return;
+        boolean isBusRunning = context.getBus().getState() != BusState.SHUTDOWN;
+        if (isBusRunning && cleanupContext) {
+            context.getBus().shutdown(true);
         }
     }
 
