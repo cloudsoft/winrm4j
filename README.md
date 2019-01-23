@@ -30,7 +30,7 @@ To use winrm4j in Java code, you first create a `WinRmTool` object via the stati
 
 * `workingDirectory(String)`
 * `environment(Map<String,String>)`
-* `setAuthenticationScheme(String)`
+* `authenticationScheme(String)`
 * `disableCertificateChecks(boolean)`
 * `useHttps(boolean)`
 * `port(int)`
@@ -45,12 +45,12 @@ Through `executeCommand(String)` method supports:
 ``` java
 WinRmClientContext context = WinRmClientContext.newInstance();
 
-WinRmTool.Builder builder = WinRmTool.Builder.builder("my.windows.server.com", "Administrator", "pa55w0rd!");
-builder.setAuthenticationScheme(AuthSchemes.NTLM);
-builder.port(5985);
-builder.useHttps(false);
-builder.context(context);
-WinRmTool tool =  builder.build();
+WinRmTool tool = WinRmTool.Builder.builder("my.windows.server.com", "Administrator", "pa55w0rd!")
+    .authenticationScheme(AuthSchemes.NTLM)
+    .port(5985)
+    .useHttps(false)
+    .context(context)
+    .build();
 
 tool.executePs("echo hi");
 
