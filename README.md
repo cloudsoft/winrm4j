@@ -63,7 +63,7 @@ Commercial support for the library is provided as part of [Cloudsoft AMP](https:
 
 ### License
 
-Copyright 2015-2017 by Cloudsoft Corporation Limited
+Copyright 2015-2019 by Cloudsoft Corporation Limited
 
 > Licensed under the Apache License, Version 2.0 (the "License");
 > you may not use this file except in compliance with the License.
