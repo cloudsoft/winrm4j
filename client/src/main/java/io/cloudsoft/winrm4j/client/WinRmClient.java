@@ -266,7 +266,7 @@ public class WinRmClient implements AutoCloseable {
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
 
                 AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
-
+                
                 if (disableCertificateChecks) {
                     TLSClientParameters tlsClientParameters = new TLSClientParameters();
                     tlsClientParameters.setDisableCNCheck(true);
@@ -291,8 +291,19 @@ public class WinRmClient implements AutoCloseable {
                 if (hostnameVerifier != null || sslSocketFactory != null || sslContext != null) {
                 	TLSClientParameters tlsClientParameters = new TLSClientParameters();
                 	tlsClientParameters.setHostnameVerifier(hostnameVerifier);
-                	tlsClientParameters.setSSLSocketFactory(sslSocketFactory);
-                	tlsClientParameters.setSslContext(sslContext);
+                	if(sslSocketFactory != null) {
+                    	if(sslSocketFactory.getDefaultCipherSuites()!=null && Arrays.asList(sslSocketFactory.getDefaultCipherSuites()).size()>0) {
+                    		tlsClientParameters.setCipherSuites(Arrays.asList(sslSocketFactory.getDefaultCipherSuites()));
+                    	}
+                    }
+                	if(sslContext != null) {
+                    	tlsClientParameters.setSslContext(sslContext);
+                    	SSLParameters sslparams =sslContext.getDefaultSSLParameters();
+                    	//To make sure that the protocols are correctly set in the cxf context
+                    	if(sslparams.getProtocols() !=null && sslparams.getProtocols().length>0) {
+                    		tlsClientParameters.setSecureSocketProtocol(String.join(",", sslparams.getProtocols()));
+                    	}
+                    }
                 	httpClient.setTlsClientParameters(tlsClientParameters);
                 }
                 HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
