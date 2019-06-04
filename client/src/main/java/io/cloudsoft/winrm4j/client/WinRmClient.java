@@ -170,7 +170,7 @@ public class WinRmClient implements AutoCloseable {
         }
 
         WinRm service = getService(builder);
-        retryingHandler = new RetryingProxyHandler(service, builder.retriesForConnectionFailures);
+        retryingHandler = new RetryingProxyHandler(service, builder.afterConnectionFailureRetryPolicy);
         this.winrm = (WinRm) Proxy.newProxyInstance(WinRm.class.getClassLoader(),
                 new Class[] {WinRm.class, BindingProvider.class},
                 retryingHandler);

@@ -20,6 +20,7 @@ import io.cloudsoft.winrm4j.client.ShellCommand;
 import io.cloudsoft.winrm4j.client.WinRmClient;
 import io.cloudsoft.winrm4j.client.WinRmClientBuilder;
 import io.cloudsoft.winrm4j.client.WinRmClientContext;
+import io.cloudsoft.winrm4j.client.retry.RetryPolicy;
 
 /**
  * Tool for executing commands over WinRM.
@@ -45,6 +46,7 @@ public class WinRmTool {
     private Long operationTimeout;
     private Predicate<String> retryReceiveAfterOperationTimeout;
     private Integer retriesForConnectionFailures;
+    private RetryPolicy afterConnectionFailureRetryPolicy;
     private final boolean disableCertificateChecks;
     private final String workingDirectory;
     private final Map<String, String> environment;
@@ -241,8 +243,15 @@ public class WinRmTool {
         setRetryReceiveAfterOperationTimeout(WinRmClientBuilder.neverRetryReceiveAfterOperationTimeout());
     }
 
+    /**
+     * Convenience method to define a simple retry policy with the default pause.
+     */
     public void setRetriesForConnectionFailures(Integer retriesForConnectionFailures) {
-        this.retriesForConnectionFailures = retriesForConnectionFailures;
+        setAfterConnectionFailureRetryPolicy(WinRmClientBuilder.simpleCounterRetryPolicy(retriesForConnectionFailures));
+    }
+
+    public void setAfterConnectionFailureRetryPolicy(RetryPolicy afterConnectionFailureRetryPolicy) {
+        this.afterConnectionFailureRetryPolicy = afterConnectionFailureRetryPolicy;
     }
 
     /**
@@ -284,8 +293,8 @@ public class WinRmTool {
         if (environment != null) {
             builder.environment(environment);
         }
-        if (retriesForConnectionFailures != null) {
-            builder.retriesForConnectionFailures(retriesForConnectionFailures);
+        if (afterConnectionFailureRetryPolicy != null) {
+            builder.afterConnectionFailureRetryPolicy(afterConnectionFailureRetryPolicy);
         }
         if (context != null) {
             builder.context(context);
