@@ -4,6 +4,7 @@ import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,6 +43,7 @@ public class WinRmTool {
     private final String password;
     private final String authenticationScheme;
     private Long operationTimeout;
+    private Predicate<String> retryReceiveAfterOperationTimeout;
     private Integer retriesForConnectionFailures;
     private final boolean disableCertificateChecks;
     private final String workingDirectory;
@@ -227,6 +229,18 @@ public class WinRmTool {
         this.operationTimeout = operationTimeout;
     }
 
+    public void setRetryReceiveAfterOperationTimeout(Predicate<String> retryReceiveAfterOperationTimeout) {
+        this.retryReceiveAfterOperationTimeout = retryReceiveAfterOperationTimeout;
+    }
+
+    public void alwaysRetryReceiveAfterOperationTimeout() {
+        setRetryReceiveAfterOperationTimeout(WinRmClientBuilder.alwaysRetryReceiveAfterOperationTimeout());
+    }
+
+    public void neverRetryReceiveAfterOperationTimeout() {
+        setRetryReceiveAfterOperationTimeout(WinRmClientBuilder.neverRetryReceiveAfterOperationTimeout());
+    }
+
     public void setRetriesForConnectionFailures(Integer retriesForConnectionFailures) {
         this.retriesForConnectionFailures = retriesForConnectionFailures;
     }
@@ -244,6 +258,9 @@ public class WinRmTool {
         builder.authenticationScheme(authenticationScheme);
         if (operationTimeout != null) {
             builder.operationTimeout(operationTimeout);
+        }
+        if (retryReceiveAfterOperationTimeout != null) {
+            builder.retryReceiveAfterOperationTimeout(retryReceiveAfterOperationTimeout);
         }
         if (username != null && password != null) {
             builder.credentials(domain, username, password);

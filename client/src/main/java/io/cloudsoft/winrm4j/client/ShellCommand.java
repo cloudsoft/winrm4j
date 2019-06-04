@@ -3,6 +3,7 @@ package io.cloudsoft.winrm4j.client;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
+import java.util.function.Predicate;
 
 import javax.xml.ws.soap.SOAPFaultException;
 
@@ -46,14 +47,21 @@ public class ShellCommand implements AutoCloseable {
     private SelectorSetType shellSelector;
 
     private String operationTimeout;
+    /**
+     * Define if a new Receive request will be send when the server returns a fault with the code
+     * {@link #WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED}.
+     */
+    private Predicate<String> retryReceiveAfterOperationTimeout;
     private final Locale locale;
 
     private int numberOfReceiveCalls;
 
-    public ShellCommand(WinRm winrm, String shellId, String operationTimeout, Locale locale) {
+    public ShellCommand(WinRm winrm, String shellId, String operationTimeout, Predicate<String> retryReceiveAfterOperationTimeout,
+            Locale locale) {
         this.winrm = winrm;
         this.shellSelector = createShellSelector(shellId);
         this.operationTimeout = operationTimeout;
+        this.retryReceiveAfterOperationTimeout = retryReceiveAfterOperationTimeout;
         this.locale = locale;
     }
 
@@ -123,17 +131,19 @@ public class ShellCommand implements AutoCloseable {
                  * If such Exception which has a code 2150858793 the client is expected to again trigger immediately a receive request.
                  * https://msdn.microsoft.com/en-us/library/cc251676.aspx
                  */
-                assertFaultCode(soapFault, WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED);
+                assertFaultCode(soapFault, WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED,
+                        retryReceiveAfterOperationTimeout);
             }
         }
     }
 
-    private void assertFaultCode(SOAPFaultException soapFault, String code) {
+    private void assertFaultCode(SOAPFaultException soapFault, String code, Predicate<String> retry) {
         try {
             NodeList faultDetails = soapFault.getFault().getDetail().getChildNodes();
             for (int i = 0; i < faultDetails.getLength(); i++) {
                 if (faultDetails.item(i).getLocalName().equals("WSManFault")) {
-                    if (faultDetails.item(i).getAttributes().getNamedItem("Code").getNodeValue().equals(code)) {
+                    if (faultDetails.item(i).getAttributes().getNamedItem("Code").getNodeValue().equals(code)
+                            && retry.test(code)) {
                         LOG.trace("winrm client {} received error 500 response with code {}, response {}", this, code, soapFault);
                         return;
                     } else {
@@ -146,6 +156,10 @@ public class ShellCommand implements AutoCloseable {
             LOG.debug("Error reading Fault Code {}", soapFault.getFault());
             throw soapFault;
         }
+    }
+
+    private void assertFaultCode(SOAPFaultException soapFault, String code) {
+        assertFaultCode(soapFault, code, x -> true);
     }
 
     /** @deprecated since 0.6.0. Implementation detail, access will be removed in future versions */
