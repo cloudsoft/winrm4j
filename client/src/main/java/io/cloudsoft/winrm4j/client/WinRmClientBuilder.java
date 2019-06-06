@@ -3,6 +3,7 @@ package io.cloudsoft.winrm4j.client;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
@@ -14,6 +15,15 @@ import io.cloudsoft.winrm4j.client.wsman.Locale;
 
 public class WinRmClientBuilder {
     private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
+    /**
+     * Timeout applied by default on client side for the opening of the socket (0 meaning infinite waiting).
+     */
+    private static final Long DEFAULT_CONNECTION_TIMEOUT = 0l;
+    /**
+     * Timeout applied by default on client side for the reading of the socket ({@code null} meaning automatically calculated from
+     * the{@link #operationTimeout} by adding to it one minute).
+     */
+    private static final Long DEFAULT_RECEIVE_TIMEOUT = null;
     private static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
     private static final int DEFAULT_RETRIES_FOR_CONNECTION_FAILURES = 1;
 
@@ -26,6 +36,7 @@ public class WinRmClientBuilder {
     protected String workingDirectory;
     protected Locale locale;
     protected long operationTimeout;
+    protected Long connectionTimeout;
     protected Long receiveTimeout;
     protected int retriesForConnectionFailures;
     protected Map<String, String> environment;
@@ -45,6 +56,8 @@ public class WinRmClientBuilder {
         authenticationScheme(AuthSchemes.NTLM);
         locale(DEFAULT_LOCALE);
         operationTimeout(DEFAULT_OPERATION_TIMEOUT);
+        connectionTimeout(DEFAULT_CONNECTION_TIMEOUT);
+        receiveTimeout(DEFAULT_RECEIVE_TIMEOUT);
         retriesForConnectionFailures(DEFAULT_RETRIES_FOR_CONNECTION_FAILURES);
     }
 
@@ -89,6 +102,30 @@ public class WinRmClientBuilder {
         this.operationTimeout = WinRmClient.checkNotNull(operationTimeout, "operationTimeout");
         return this;
     }
+
+   /**
+    * Timeout applied to connect the socket.
+    *
+    * @param connectionTimeout in milliseconds
+    *                         default value {@link WinRmClientBuilder#DEFAULT_CONNECTION_TIMEOUT}
+    * @see <a href="https://cxf.apache.org/javadoc/latest/org/apache/cxf/transports/http/configuration/HTTPClientPolicy.html#setConnectionTimeout-long-">HTTPClientPolicy#setConnectionTimeout</a>
+    */
+    public WinRmClientBuilder connectionTimeout(Long connectionTimeout) {
+        this.connectionTimeout = Objects.requireNonNull(connectionTimeout, "connectionTimeout");
+        return this;
+    }
+
+    /**
+     * Timeout applied to read the socket.
+     *
+     * @param receiveTimeout in milliseconds
+     *                         default value {@link WinRmClientBuilder#DEFAULT_RECEIVE_TIMEOUT}
+     * @see <a href="https://cxf.apache.org/javadoc/latest/org/apache/cxf/transports/http/configuration/HTTPClientPolicy.html#setReceiveTimeout-long-">HTTPClientPolicy#setReceiveTimeout</a>
+     */
+     public WinRmClientBuilder receiveTimeout(Long receiveTimeout) {
+         this.receiveTimeout = receiveTimeout;
+         return this;
+     }
 
     /**
      * @param retriesConnectionFailures How many times to retry the command before giving up in case of failure (exception).

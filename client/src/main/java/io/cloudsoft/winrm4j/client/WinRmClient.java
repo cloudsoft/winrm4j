@@ -218,6 +218,7 @@ public class WinRmClient implements AutoCloseable {
         HostnameVerifier hostnameVerifier = builder.hostnameVerifier;
         SSLSocketFactory sslSocketFactory = builder.sslSocketFactory;
         SSLContext sslContext = builder.sslContext;
+        long connectionTimeout = builder.connectionTimeout;
         long receiveTimeout;
         if (builder.receiveTimeout != null) {
             receiveTimeout = builder.receiveTimeout;
@@ -297,6 +298,7 @@ public class WinRmClient implements AutoCloseable {
                 }
                 HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
                 httpClientPolicy.setAllowChunking(false);
+                httpClientPolicy.setConnectionTimeout(connectionTimeout);
                 httpClientPolicy.setReceiveTimeout(receiveTimeout);
 
                 httpClient.setClient(httpClientPolicy);
