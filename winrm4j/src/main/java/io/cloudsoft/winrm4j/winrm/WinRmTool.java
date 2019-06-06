@@ -47,6 +47,8 @@ public class WinRmTool {
     private Predicate<String> retryReceiveAfterOperationTimeout;
     private Integer retriesForConnectionFailures;
     private RetryPolicy failureRetryPolicy;
+    private Long connectionTimeout;
+    private Long receiveTimeout;
     private final boolean disableCertificateChecks;
     private final String workingDirectory;
     private final Map<String, String> environment;
@@ -231,6 +233,26 @@ public class WinRmTool {
         this.operationTimeout = operationTimeout;
     }
 
+	/**
+	 * Update connectionTimeout
+	 *
+	 * @param connectionTimeout in milliseconds
+	 *                         default value {@link WinRmClientBuilder#DEFAULT_CONNECTION_TIMEOUT}
+	 */
+	public void setConnectionTimeout(Long connectionTimeout) {
+		this.connectionTimeout = connectionTimeout;
+	}
+
+	/**
+	 * Update receiveTimeout
+	 *
+	 * @param receiveTimeout in milliseconds
+	 *                         default value {@link WinRmClientBuilder#DEFAULT_RECEIVE_TIMEOUT}
+	 */
+	public void setReceiveTimeout(Long receiveTimeout) {
+		this.receiveTimeout = receiveTimeout;
+	}
+
     public void setRetryReceiveAfterOperationTimeout(Predicate<String> retryReceiveAfterOperationTimeout) {
         this.retryReceiveAfterOperationTimeout = retryReceiveAfterOperationTimeout;
     }
@@ -270,6 +292,12 @@ public class WinRmTool {
         }
         if (retryReceiveAfterOperationTimeout != null) {
             builder.retryReceiveAfterOperationTimeout(retryReceiveAfterOperationTimeout);
+        }
+        if (connectionTimeout != null) {
+            builder.connectionTimeout(connectionTimeout);
+        }
+        if (receiveTimeout != null) {
+            builder.receiveTimeout(receiveTimeout);
         }
         if (username != null && password != null) {
             builder.credentials(domain, username, password);
