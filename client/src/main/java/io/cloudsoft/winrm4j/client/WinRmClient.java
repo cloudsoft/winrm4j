@@ -99,11 +99,6 @@ public class WinRmClient implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(WinRmClient.class.getName());
 
     /**
-     * Name of the system property which define the login configuration file used for JAAS authentication.
-     */
-    private static final String JAAS_LOGIN_CONF_PROP = "java.security.auth.login.config";
-
-    /**
      * Object identifier of Kerberos as mechanism used by GSS for obtain the TGT.
      *
      * @see http://oid-info.com/get/1.2.840.113554.1.2.2
@@ -114,13 +109,6 @@ public class WinRmClient implements AutoCloseable {
      * Default JAAS configuration for Kerberos authentication.
      */
     private static final Configuration JAAS_KERB_LOGIN_CONF = new KerberosJaasConfiguration();
-
-    /**
-     * @return {@code true} if the JAAS configuration file for LoginModule is defined
-     */
-    private static boolean isJaasLoginConfigDefined() {
-        return System.getProperty(JAAS_LOGIN_CONF_PROP) != null;
-    }
 
     /**
      * Create a WinRmClient builder
@@ -302,11 +290,11 @@ public class WinRmClient implements AutoCloseable {
                  * 1) with SSO : if a JAAS configuration file is defined the authentication is done with an external
                  *    TGT get from the cache or a keyTab file or created after input credentials from prompt
                  *    (depending the configuration set in JAAS login configuration file).
-                 * 2) login : if no JAAS configuration is defined, a Kerberos authentication will be done with the
+                 * 2) login : if requested by the builder configuration, a Kerberos authentication will be done with the
                  *    credentials provided by the builder. The TGT obtained will be stored in the request context
                  *    in order to be used by the HttpAuthenticator to generate the Spnego token.
                  */
-                Credentials creds = authenticationScheme == AuthSchemes.KERBEROS && !isJaasLoginConfigDefined()
+                Credentials creds = authenticationScheme == AuthSchemes.KERBEROS && builder.requestNewKerberosTicket
                         ? getKerberosCreds(username, password)
                         : new NTCredentials(username, password, null, domain);
 

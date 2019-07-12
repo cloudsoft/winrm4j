@@ -50,6 +50,7 @@ public class WinRmTool {
     private final SSLSocketFactory sslSocketFactory;
     private final SSLContext sslContext;
     private final WinRmClientContext context;
+    private final boolean requestNewKerberosTicket;
 
     public static class Builder {
         private String authenticationScheme = AuthSchemes.NTLM;
@@ -66,6 +67,7 @@ public class WinRmTool {
         private SSLSocketFactory sslSocketFactory;
         private SSLContext sslContext;
         private WinRmClientContext context;
+        private boolean requestNewKerberosTicket;
 
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
@@ -139,13 +141,18 @@ public class WinRmTool {
             this.context = context;
             return this;
         }
+        
+        public Builder requestNewKerberosTicket(boolean requestNewKerberosTicket) {
+            this.requestNewKerberosTicket = requestNewKerberosTicket;
+            return this;
+        }
 
         public WinRmTool build() {
             return new WinRmTool(getEndpointUrl(address, useHttps, port),
                     domain, username, password, authenticationScheme,
                     disableCertificateChecks, workingDirectory,
                     environment, hostnameVerifier, sslSocketFactory, sslContext,
-                    context);
+                    context, requestNewKerberosTicket);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -184,7 +191,8 @@ public class WinRmTool {
             String password, String authenticationScheme,
             boolean disableCertificateChecks, String workingDirectory,
             Map<String, String> environment, HostnameVerifier hostnameVerifier,
-            SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context) {
+            SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context,
+            boolean requestNewKerberosTicket) {
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
         this.domain = domain;
@@ -197,6 +205,7 @@ public class WinRmTool {
         this.sslSocketFactory = sslSocketFactory;
         this.sslContext = sslContext;
         this.context = context;
+        this.requestNewKerberosTicket = requestNewKerberosTicket;
     }
 
     /**
@@ -272,6 +281,9 @@ public class WinRmTool {
         }
         if (context != null) {
             builder.context(context);
+        }
+        if (requestNewKerberosTicket) {
+            builder.requestNewKerberosTicket(requestNewKerberosTicket);
         }
 
         StringWriter out = new StringWriter();

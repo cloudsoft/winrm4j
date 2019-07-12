@@ -35,6 +35,7 @@ public class WinRmClientBuilder {
     protected SSLSocketFactory sslSocketFactory;
     
     protected SSLContext sslContext;
+    protected boolean requestNewKerberosTicket;
     
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));
@@ -163,6 +164,16 @@ public class WinRmClientBuilder {
      */
     public WinRmClientBuilder context(WinRmClientContext context) {
         this.context = context;
+        return this;
+    }
+
+    /**
+     * Set this parameter to {@code true} for requesting from the KDC a fresh Kerberos TGT with credentials set to the builder.
+     * In this case the configuration defined in the JAAS configuration file will be ignored.
+     * By default this parameter is set to {@code false}. 
+     */
+    public WinRmClientBuilder requestNewKerberosTicket(boolean requestNewKerberosTicket) {
+        this.requestNewKerberosTicket = requestNewKerberosTicket;
         return this;
     }
 
