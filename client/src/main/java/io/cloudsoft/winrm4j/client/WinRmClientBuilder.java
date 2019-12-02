@@ -3,6 +3,7 @@ package io.cloudsoft.winrm4j.client;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
@@ -26,6 +27,7 @@ public class WinRmClientBuilder {
     protected String workingDirectory;
     protected Locale locale;
     protected long operationTimeout;
+    protected Predicate<String> retryReceiveAfterOperationTimeout;
     protected Long receiveTimeout;
     protected int retriesForConnectionFailures;
     protected Map<String, String> environment;
@@ -45,6 +47,7 @@ public class WinRmClientBuilder {
         authenticationScheme(AuthSchemes.NTLM);
         locale(DEFAULT_LOCALE);
         operationTimeout(DEFAULT_OPERATION_TIMEOUT);
+        retryReceiveAfterOperationTimeout(alwaysRetryReceiveAfterOperationTimeout());
         retriesForConnectionFailures(DEFAULT_RETRIES_FOR_CONNECTION_FAILURES);
     }
 
@@ -88,6 +91,24 @@ public class WinRmClientBuilder {
     public WinRmClientBuilder operationTimeout(long operationTimeout) {
         this.operationTimeout = WinRmClient.checkNotNull(operationTimeout, "operationTimeout");
         return this;
+    }
+
+    /**
+     * @param retryReceiveAfterOperationTimeout define if a new Receive request will be send when the server returns
+     *      a fault with the code {@link ShellCommand#WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED}.
+     *        Default value {@link #ALWAYS_RETRY_AFTER_OPERATION_TIMEOUT_EXPIRED}.
+     */
+    public WinRmClientBuilder retryReceiveAfterOperationTimeout(Predicate<String> retryReceiveAfterOperationTimeout) {
+        this.retryReceiveAfterOperationTimeout = retryReceiveAfterOperationTimeout;
+        return this;
+    }
+
+    public static Predicate<String> alwaysRetryReceiveAfterOperationTimeout() {
+        return x -> true;
+    }
+
+    public static Predicate<String> neverRetryReceiveAfterOperationTimeout() {
+        return x -> false;
     }
 
     /**

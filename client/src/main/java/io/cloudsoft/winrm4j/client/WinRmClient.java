@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Predicate;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
@@ -68,6 +69,7 @@ public class WinRmClient implements AutoCloseable {
 
     // Can be changed throughout object's lifetime, but deprecated
     private String operationTimeout;
+    private Predicate<String> retryReceiveAfterOperationTimeout;
 
     private final WinRmClientContext context;
     private final boolean cleanupContext;
@@ -156,6 +158,7 @@ public class WinRmClient implements AutoCloseable {
         this.workingDirectory = builder.workingDirectory;
         this.locale = builder.locale;
         this.operationTimeout = toDuration(builder.operationTimeout);
+        this.retryReceiveAfterOperationTimeout = builder.retryReceiveAfterOperationTimeout;
         this.environment = builder.environment;
 
         if (builder.context != null) {
@@ -344,7 +347,7 @@ public class WinRmClient implements AutoCloseable {
         ResourceCreated resourceCreated = winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
         String shellId = getShellId(resourceCreated);
 
-        return new ShellCommand(winrm, shellId, operationTimeout, locale);
+        return new ShellCommand(winrm, shellId, operationTimeout, retryReceiveAfterOperationTimeout, locale);
     }
 
     private static String getShellId(ResourceCreated resourceCreated) {
