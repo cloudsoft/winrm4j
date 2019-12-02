@@ -65,8 +65,9 @@
     <testng.version>6.9.10</testng.version>
     <guava.version>18.0</guava.version>
     <cxf.version>3.2.8</cxf.version>
+    <cxf.java2ws.plugin.version>3.3.2</cxf.java2ws.plugin.version>
     <httpcomponents.httpcore.version>4.4.4</httpcomponents.httpcore.version>
-    <httpcomponents.httpasyncclient.version>4.1.2</httpcomponents.httpasyncclient.version>
+    <httpcomponents.httpasyncclient.version>4.1.4</httpcomponents.httpasyncclient.version>
     <httpcomponents.httpclient.version>4.5.2</httpcomponents.httpclient.version>
     <mockwebserver.version>3.5.0</mockwebserver.version>
     <xmlunit.version>2.3.0</xmlunit.version>
@@ -102,7 +103,6 @@
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
-        <version>3.0.1</version>
         <extensions>true</extensions>
         <executions>
           <execution>
@@ -125,7 +125,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <version>2.6</version>
         <artifactId>maven-jar-plugin</artifactId>
         <configuration>
           <archive>
@@ -179,7 +178,7 @@
         <plugin>
           <groupId>org.apache.cxf</groupId>
           <artifactId>cxf-java2ws-plugin</artifactId>
-          <version>${cxf.version}</version>
+          <version>${cxf.java2ws.plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.cxf</groupId>
