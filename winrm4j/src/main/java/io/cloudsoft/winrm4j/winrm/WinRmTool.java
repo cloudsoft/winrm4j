@@ -46,7 +46,7 @@ public class WinRmTool {
     private Long operationTimeout;
     private Predicate<String> retryReceiveAfterOperationTimeout;
     private Integer retriesForConnectionFailures;
-    private RetryPolicy afterConnectionFailureRetryPolicy;
+    private RetryPolicy failureRetryPolicy;
     private final boolean disableCertificateChecks;
     private final String workingDirectory;
     private final Map<String, String> environment;
@@ -247,11 +247,11 @@ public class WinRmTool {
      * Convenience method to define a simple retry policy with the default pause.
      */
     public void setRetriesForConnectionFailures(Integer retriesForConnectionFailures) {
-        setAfterConnectionFailureRetryPolicy(WinRmClientBuilder.simpleCounterRetryPolicy(retriesForConnectionFailures));
+        setFailureRetryPolicy(WinRmClientBuilder.simpleCounterRetryPolicy(retriesForConnectionFailures));
     }
 
-    public void setAfterConnectionFailureRetryPolicy(RetryPolicy afterConnectionFailureRetryPolicy) {
-        this.afterConnectionFailureRetryPolicy = afterConnectionFailureRetryPolicy;
+    public void setFailureRetryPolicy(RetryPolicy failureRetryPolicy) {
+        this.failureRetryPolicy = failureRetryPolicy;
     }
 
     /**
@@ -293,8 +293,8 @@ public class WinRmTool {
         if (environment != null) {
             builder.environment(environment);
         }
-        if (afterConnectionFailureRetryPolicy != null) {
-            builder.afterConnectionFailureRetryPolicy(afterConnectionFailureRetryPolicy);
+        if (failureRetryPolicy != null) {
+            builder.failureRetryPolicy(failureRetryPolicy);
         }
         if (context != null) {
             builder.context(context);

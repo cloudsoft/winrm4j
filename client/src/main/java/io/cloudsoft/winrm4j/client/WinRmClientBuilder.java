@@ -37,7 +37,7 @@ public class WinRmClientBuilder {
     protected long operationTimeout;
     protected Predicate<String> retryReceiveAfterOperationTimeout;
     protected Long receiveTimeout;
-    protected RetryPolicy afterConnectionFailureRetryPolicy;
+    protected RetryPolicy failureRetryPolicy;
     protected Map<String, String> environment;
 
     protected boolean disableCertificateChecks;
@@ -120,26 +120,26 @@ public class WinRmClientBuilder {
     }
 
     /**
-     * @param retriesConnectionFailures How many times to retry the command before giving up in case of failure (exception).
-     *        Default is 1.
-     * @deprecated replaced by {@link #afterConnectionFailureRetryPolicy(RetryPolicy)}
+     * @param maxRetries How many times to retry the command before giving up in case of failure (exception).
+     *                   Default is 1.
+     * @deprecated since 0.8.0; replaced by {@link #failureRetryPolicy(RetryPolicy)}
      */
     @Deprecated
-    public WinRmClientBuilder retriesForConnectionFailures(int retriesConnectionFailures) {
-        if (retriesConnectionFailures < 1) {
-            throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
+    public WinRmClientBuilder retriesForConnectionFailures(int maxRetries) {
+        if (maxRetries < 0) {
+            throw new IllegalArgumentException("retriesConnectionFailure should be zero or more");
         }
-        afterConnectionFailureRetryPolicy(simpleCounterRetryPolicy(retriesConnectionFailures));
+        failureRetryPolicy(simpleCounterRetryPolicy(maxRetries));
         return this;
     }
 
-    public WinRmClientBuilder afterConnectionFailureRetryPolicy(RetryPolicy afterConnectionFailureRetryPolicy) {
-        this.afterConnectionFailureRetryPolicy = afterConnectionFailureRetryPolicy;
+    public WinRmClientBuilder failureRetryPolicy(RetryPolicy failureRetryPolicy) {
+        this.failureRetryPolicy = failureRetryPolicy;
         return this;
     }
 
-    public static RetryPolicy simpleCounterRetryPolicy(int total) {
-        return new SimpleCounterRetryPolicy(total, DEFAULT_PAUSE_BETWEEN_RETRIES, TimeUnit.SECONDS);
+    public static RetryPolicy simpleCounterRetryPolicy(int maxRetries) {
+        return new SimpleCounterRetryPolicy(maxRetries, DEFAULT_PAUSE_BETWEEN_RETRIES, TimeUnit.SECONDS);
     }
 
     /**

@@ -18,11 +18,11 @@ class RetryingProxyHandler implements InvocationHandler {
     private static final Logger LOG = LoggerFactory.getLogger(RetryingProxyHandler.class);
 
     private final WinRm winrm;
-    private RetryPolicy afterConnectionFailureRetryPolicy;
+    private RetryPolicy failureRetryPolicy;
 
-    public RetryingProxyHandler(WinRm winrm, RetryPolicy afterConnectionFailureRetryPolicy) {
+    public RetryingProxyHandler(WinRm winrm, RetryPolicy failureRetryPolicy) {
         this.winrm = winrm;
-        this.afterConnectionFailureRetryPolicy = afterConnectionFailureRetryPolicy;
+        this.failureRetryPolicy = failureRetryPolicy;
     }
 
     @Override
@@ -38,10 +38,11 @@ class RetryingProxyHandler implements InvocationHandler {
     public Object invokeWithRetry(Method method, Object[] args)
             throws IllegalAccessException, InvocationTargetException {
         Throwable firstException = null;
-        afterConnectionFailureRetryPolicy.clear();
         boolean tryAgain = true;
+        int attempt = 0;
 
-        for (int attempt = 1; tryAgain; attempt++) {
+        do {
+        	attempt++;
             try {
                 return method.invoke(winrm, args);
             } catch (InvocationTargetException targetException) {
@@ -49,43 +50,45 @@ class RetryingProxyHandler implements InvocationHandler {
                 if (e instanceof SOAPFaultException) {
                     throw (SOAPFaultException) e;
                 }
-                if (e instanceof WebServiceException == false) {
+                if (!(e instanceof WebServiceException)) {
                     throw new IllegalStateException("Failure when calling " + method + args, e);
                 }
                 WebServiceException wsException = (WebServiceException) e;
-                if (wsException.getCause() instanceof IOException == false) {
+                if (!(wsException.getCause() instanceof IOException)) {
                     throw new RuntimeException("Exception occurred while making winrm call", wsException);
                 }
                 if (firstException == null) {
                     firstException = wsException;
                 }
-                RetryDecision retryDecision = afterConnectionFailureRetryPolicy.apply(wsException);
-                if (retryDecision.retry()) {
-                    LOG.debug("Ignoring exception and retrying (attempt " + attempt //
-                            + afterConnectionFailureRetryPolicy.total().map(total -> " of " + (total + 1)).orElse("") + ")",
+                RetryDecision retryDecision = failureRetryPolicy.onWebServiceException(wsException, attempt);
+                if (retryDecision.shouldRetry()) {
+                    LOG.debug("On attempt " + attempt + ", ignoring exception and retrying (" + retryDecision.reason() + ")", 
                             wsException);
                     try {
-                        Thread.sleep(retryDecision.pause());
+                        Thread.sleep(retryDecision.pauseTimeMillis());
                     } catch (InterruptedException interruptedException) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("Exception occured while making winrm call",
-                                e.initCause(wsException));
+                                targetException);
                     }
                 } else {
                     tryAgain = false;
                 }
             }
-        }
-        throw new RuntimeException("failed task \"" + method.getName() + "\""
-                + afterConnectionFailureRetryPolicy.total().map(total -> " after " + (total + 1) + " attempt(s)").orElse(""),
-                firstException);
+        } while (tryAgain);
+        
+        LOG.debug("failed task \"" + method.getName() + "\" after " + attempt + " attempt(s), rethrowing first exception");
+        throw new RuntimeException("failed task \"" + method.getName() + "\" after " + attempt + " attempt(s)", firstException);
     }
 
+    /**
+     * @deprecated instated use {@link WinRmClientBuilder#failureRetryPolicy(RetryPolicy)}
+     */
     @Deprecated
     public void setRetriesForConnectionFailures(int retries) {
         LOG.warn("method RetryingProxyHandler#setRetriesForConnectionFailures has been deprecated,"
-                + " please use instead WinRmClientBuilder#afterConnectionFailureRetryPolicy");
-        afterConnectionFailureRetryPolicy = WinRmClientBuilder.simpleCounterRetryPolicy(retries);
+                + " please use instead WinRmClientBuilder#failureRetryPolicy");
+        failureRetryPolicy = WinRmClientBuilder.simpleCounterRetryPolicy(retries);
     }
 
 }

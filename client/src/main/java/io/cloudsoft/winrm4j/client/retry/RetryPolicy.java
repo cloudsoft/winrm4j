@@ -1,23 +1,15 @@
 package io.cloudsoft.winrm4j.client.retry;
 
-import java.util.Optional;
-import java.util.function.Function;
+import javax.xml.ws.WebServiceException;
 
 /**
- * Policy to decide if a retry must be done.
+ * Policy to decide if a retry should be done.
+ * 
+ * Those implementing this interface are encouraged to do so in a thread-safe way.
+ * 
+ * @since 0.8.0
  */
-public interface RetryPolicy extends Function<Throwable, RetryDecision> {
+public interface RetryPolicy {
 
-    /**
-     * @return total number of retries if known
-     */
-    default Optional<Integer> total() {
-        return Optional.empty();
-    }
-
-    /**
-     * Reset the state of the policy. This method MUST be called before enter the loop of retries.
-     */
-    default void clear() {
-    }
+	RetryDecision onWebServiceException(WebServiceException exception, int numAttempts);
 }

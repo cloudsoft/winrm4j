@@ -3,37 +3,30 @@ package io.cloudsoft.winrm4j.client.retry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.ws.WebServiceException;
+
 /**
- * Basic implementation of a retry policy based on a simple counter. The duration of the pause is static.
+ * Retry policy that uses max number of retries.
+ * 
+ * @since 0.8.0
  */
 public class SimpleCounterRetryPolicy implements RetryPolicy {
-    private final long pause;
-    private final int total;
-    private int counter;
+    private final int maxRetries;
+    private final long pauseTimeMillis;
 
     /**
-     * @param total         total number of retries
-     * @param pause         duration of the sleep between each retries
-     * @param pauseUnit     unit of the duration
+     * @param maxRetries  total number of retries (e.g. {@code 1} means two attempts).
+     * @param pauseTime   duration of the sleep between each retries
+     * @param pauseUnit   unit of the {@code pauseTime} duration
      */
-    public SimpleCounterRetryPolicy(int total, long pause, TimeUnit pauseUnit) {
-        this.total = total;
-        this.pause = pauseUnit.toMillis(pause);
+    public SimpleCounterRetryPolicy(int maxRetries, long pauseTime, TimeUnit pauseUnit) {
+        this.maxRetries = maxRetries;
+        this.pauseTimeMillis = pauseUnit.toMillis(pauseTime);
     }
 
-    @Override
-    public Optional<Integer> total() {
-        return Optional.of(total);
-    }
-
-    @Override
-    public void clear() {
-        counter = 0;
-    }
-
-    @Override
-    public RetryDecision apply(Throwable t) {
-        counter++;
-        return new DefaultRetryDecision(counter <= total, pause);
-    }
+	@Override
+	public RetryDecision onWebServiceException(WebServiceException exception, int numAttempts) {
+        Optional<String> reason = Optional.of("Attempt " + numAttempts + " of " + (maxRetries + 1));
+		return new BasicRetryDecision(numAttempts <= maxRetries, pauseTimeMillis, reason);
+	}
 }
