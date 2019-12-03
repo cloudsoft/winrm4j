@@ -15,8 +15,8 @@ import java.util.Map.Entry;
 import java.util.function.Predicate;
 
 import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.xml.ws.BindingProvider;
@@ -222,6 +222,7 @@ public class WinRmClient implements AutoCloseable {
         SSLSocketFactory sslSocketFactory = builder.sslSocketFactory;
         SSLContext sslContext = builder.sslContext;
         long connectionTimeout = builder.connectionTimeout;
+        long connectionRequestTimeout = builder.connectionRequestTimeout;
         long receiveTimeout;
         if (builder.receiveTimeout != null) {
             receiveTimeout = builder.receiveTimeout;
@@ -302,6 +303,7 @@ public class WinRmClient implements AutoCloseable {
                 HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
                 httpClientPolicy.setAllowChunking(false);
                 httpClientPolicy.setConnectionTimeout(connectionTimeout);
+                httpClientPolicy.setConnectionRequestTimeout(connectionRequestTimeout);
                 httpClientPolicy.setReceiveTimeout(receiveTimeout);
 
                 httpClient.setClient(httpClientPolicy);

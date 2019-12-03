@@ -5,7 +5,6 @@ import java.net.URL;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.concurrent.TimeUnit;
-import java.util.Objects;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
@@ -22,13 +21,18 @@ public class WinRmClientBuilder {
     /**
      * Timeout applied by default on client side for the opening of the socket (0 meaning infinite waiting).
      */
-    private static final Long DEFAULT_CONNECTION_TIMEOUT = 0l;
+    // Default matches org.apache.cxf.transports.http.configuration.HTTPClientPolicy.getConnectionTimeout()
+    private static final long DEFAULT_CONNECTION_TIMEOUT = 30L * 1000L;
+    
+    // Default matches org.apache.cxf.transports.http.configuration.HTTPClientPolicy.getConnectionRequestTimeout()
+    private static final long DEFAULT_CONNECTION_REQUEST_TIMEOUT = 60L * 1000L;
+    
     /**
      * Timeout applied by default on client side for the reading of the socket ({@code null} meaning automatically calculated from
      * the{@link #operationTimeout} by adding to it one minute).
      */
     private static final Long DEFAULT_RECEIVE_TIMEOUT = null;
-    private static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
+    private static final Long DEFAULT_OPERATION_TIMEOUT = 60L * 1000L;
     private static final int DEFAULT_RETRIES_FOR_CONNECTION_FAILURES = 1;
 
     /**
@@ -46,7 +50,8 @@ public class WinRmClientBuilder {
     protected Locale locale;
     protected long operationTimeout;
     protected Predicate<String> retryReceiveAfterOperationTimeout;
-    protected Long connectionTimeout;
+    protected long connectionTimeout;
+    protected long connectionRequestTimeout;
     protected Long receiveTimeout;
     protected RetryPolicy failureRetryPolicy;
     protected Map<String, String> environment;
@@ -68,6 +73,7 @@ public class WinRmClientBuilder {
         operationTimeout(DEFAULT_OPERATION_TIMEOUT);
         retryReceiveAfterOperationTimeout(alwaysRetryReceiveAfterOperationTimeout());
         connectionTimeout(DEFAULT_CONNECTION_TIMEOUT);
+        connectionRequestTimeout(DEFAULT_CONNECTION_REQUEST_TIMEOUT);
         receiveTimeout(DEFAULT_RECEIVE_TIMEOUT);
         retriesForConnectionFailures(DEFAULT_RETRIES_FOR_CONNECTION_FAILURES);
     }
@@ -110,7 +116,7 @@ public class WinRmClientBuilder {
      *                         default value {@link WinRmClient.Builder#DEFAULT_OPERATION_TIMEOUT}
      */
     public WinRmClientBuilder operationTimeout(long operationTimeout) {
-        this.operationTimeout = WinRmClient.checkNotNull(operationTimeout, "operationTimeout");
+        this.operationTimeout = operationTimeout;
         return this;
     }
 
@@ -121,10 +127,22 @@ public class WinRmClientBuilder {
     *                         default value {@link WinRmClientBuilder#DEFAULT_CONNECTION_TIMEOUT}
     * @see <a href="https://cxf.apache.org/javadoc/latest/org/apache/cxf/transports/http/configuration/HTTPClientPolicy.html#setConnectionTimeout-long-">HTTPClientPolicy#setConnectionTimeout</a>
     */
-    public WinRmClientBuilder connectionTimeout(Long connectionTimeout) {
-        this.connectionTimeout = Objects.requireNonNull(connectionTimeout, "connectionTimeout");
+    public WinRmClientBuilder connectionTimeout(long connectionTimeout) {
+        this.connectionTimeout = connectionTimeout;
         return this;
     }
+
+    /**
+     * Timeout applied to requesting a connection from the connection manager.
+     *
+     * @param connectionRequestTimeout in milliseconds
+     *                                 default value {@link WinRmClientBuilder#DEFAULT_CONNECTION_REQUEST_TIMEOUT}
+     * @see <a href="https://cxf.apache.org/javadoc/latest/org/apache/cxf/transports/http/configuration/HTTPClientPolicy.html#setConnectionRequestTimeout-long-">HTTPClientPolicy#setConnectionRequestTimeout</a>
+     */
+     public WinRmClientBuilder connectionRequestTimeout(long connectionRequestTimeout) {
+         this.connectionRequestTimeout = connectionRequestTimeout;
+         return this;
+     }
 
     /**
      * Timeout applied to read the socket.
