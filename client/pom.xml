@@ -160,6 +160,28 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <configuration>
+          <instructions>
+              <!--
+                Don't include version number for bind, because otherwise it breaks with CXF 3.3.2 in Karaf 4.2.7.
+                In brief, if we include the version it means the jakarta.xml.bind-api bundle gets installed 
+                (which we don't want - that gives us two XMLRegistry classes on the classpath).
+                 
+                For more info:
+                 * See description of problem: https://lists.apache.org/thread.html/ead4351d187f7d7e7c257cb47f2490b3139d0de8d6fe15c43beea4d3%40%3Cdev.brooklyn.apache.org%3E
+                 * Pointer to solution from cxf mailing list: http://mail-archives.apache.org/mod_mbox/cxf-users/201912.mbox/%3c220874e1-37ca-1d15-4f79-17837cd73813@gmail.com%3e
+                 * Summary of conclusions: https://lists.apache.org/thread.html/f24c5833eb0ffda00021a57a606e143a4f5a2b7971df4e11406df1a6%40%3Cdev.brooklyn.apache.org%3E
+               -->
+              <Import-Package>
+                javax.xml.bind*;version=!,
+                *
+              </Import-Package>
+          </instructions>
+        </configuration>
+      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
