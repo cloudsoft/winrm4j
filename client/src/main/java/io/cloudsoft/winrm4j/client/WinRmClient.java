@@ -75,7 +75,7 @@ public class WinRmClient implements AutoCloseable {
     private final boolean cleanupContext;
 
     private final WinRm winrm;
-    private RetryingProxyHandler retryingHandler;
+    private final RetryingProxyHandler retryingHandler;
 
     private ShellCommand shellCommand;
 
@@ -170,7 +170,7 @@ public class WinRmClient implements AutoCloseable {
         }
 
         WinRm service = getService(builder);
-        retryingHandler = new RetryingProxyHandler(service, builder.retriesForConnectionFailures);
+        retryingHandler = new RetryingProxyHandler(service, builder.failureRetryPolicy);
         this.winrm = (WinRm) Proxy.newProxyInstance(WinRm.class.getClassLoader(),
                 new Class[] {WinRm.class, BindingProvider.class},
                 retryingHandler);

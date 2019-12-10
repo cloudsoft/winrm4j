@@ -4,6 +4,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
@@ -11,12 +12,19 @@ import javax.net.ssl.SSLContext;
 
 import org.apache.http.client.config.AuthSchemes;
 
+import io.cloudsoft.winrm4j.client.retry.RetryPolicy;
+import io.cloudsoft.winrm4j.client.retry.SimpleCounterRetryPolicy;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 
 public class WinRmClientBuilder {
     private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
     private static final Long DEFAULT_OPERATION_TIMEOUT = 60l * 1000l;
     private static final int DEFAULT_RETRIES_FOR_CONNECTION_FAILURES = 1;
+
+    /**
+     * Duration in seconds applied by default for the sleep between 2 retries after a connection failure.
+     */
+    private static final long DEFAULT_PAUSE_BETWEEN_RETRIES = 5;
 
     protected WinRmClientContext context;
     protected final URL endpoint;
@@ -29,7 +37,7 @@ public class WinRmClientBuilder {
     protected long operationTimeout;
     protected Predicate<String> retryReceiveAfterOperationTimeout;
     protected Long receiveTimeout;
-    protected int retriesForConnectionFailures;
+    protected RetryPolicy failureRetryPolicy;
     protected Map<String, String> environment;
 
     protected boolean disableCertificateChecks;
@@ -112,17 +120,27 @@ public class WinRmClientBuilder {
     }
 
     /**
-     * @param retriesConnectionFailures How many times to retry the command before giving up in case of failure (exception).
-     *        Default is 16.
+     * @param maxRetries How many times to retry the command before giving up in case of failure (exception).
+     *                   Default is 1.
+     * @deprecated since 0.8.0; replaced by {@link #failureRetryPolicy(RetryPolicy)}
      */
-    public WinRmClientBuilder retriesForConnectionFailures(int retriesConnectionFailures) {
-        if (retriesConnectionFailures < 1) {
-            throw new IllegalArgumentException("retriesConnectionFailure should be one or more");
+    @Deprecated
+    public WinRmClientBuilder retriesForConnectionFailures(int maxRetries) {
+        if (maxRetries < 0) {
+            throw new IllegalArgumentException("retriesConnectionFailure should be zero or more");
         }
-        this.retriesForConnectionFailures = retriesConnectionFailures;
+        failureRetryPolicy(simpleCounterRetryPolicy(maxRetries));
         return this;
     }
 
+    public WinRmClientBuilder failureRetryPolicy(RetryPolicy failureRetryPolicy) {
+        this.failureRetryPolicy = failureRetryPolicy;
+        return this;
+    }
+
+    public static RetryPolicy simpleCounterRetryPolicy(int maxRetries) {
+        return new SimpleCounterRetryPolicy(maxRetries, DEFAULT_PAUSE_BETWEEN_RETRIES, TimeUnit.SECONDS);
+    }
 
     /**
      * @param disableCertificateChecks Skip trusted certificate and domain (CN) checks.

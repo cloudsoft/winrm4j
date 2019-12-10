@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.xml.ws.WebServiceException;
 import javax.xml.ws.soap.SOAPFaultException;
@@ -13,16 +11,18 @@ import javax.xml.ws.soap.SOAPFaultException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.cloudsoft.winrm4j.client.retry.RetryDecision;
+import io.cloudsoft.winrm4j.client.retry.RetryPolicy;
+
 class RetryingProxyHandler implements InvocationHandler {
     private static final Logger LOG = LoggerFactory.getLogger(RetryingProxyHandler.class);
 
     private final WinRm winrm;
-    private int retriesForConnectionFailures;
+    private RetryPolicy failureRetryPolicy;
 
-
-    public RetryingProxyHandler(WinRm winrm, int retriesForConnectionFailures) {
+    public RetryingProxyHandler(WinRm winrm, RetryPolicy failureRetryPolicy) {
         this.winrm = winrm;
-        this.retriesForConnectionFailures = retriesForConnectionFailures;
+        this.failureRetryPolicy = failureRetryPolicy;
     }
 
     @Override
@@ -37,39 +37,58 @@ class RetryingProxyHandler implements InvocationHandler {
 
     public Object invokeWithRetry(Method method, Object[] args)
             throws IllegalAccessException, InvocationTargetException {
-        List<Throwable> exceptions = new ArrayList<>();
+        Throwable firstException = null;
+        boolean tryAgain = true;
+        int attempt = 0;
 
-        for (int i = 0; i < retriesForConnectionFailures + 1; i++) {
+        do {
+        	attempt++;
             try {
                 return method.invoke(winrm, args);
             } catch (InvocationTargetException targetException) {
                 Throwable e = targetException.getTargetException();
                 if (e instanceof SOAPFaultException) {
-                    throw (SOAPFaultException)e;
-                } else if (e instanceof WebServiceException) {
-                    WebServiceException wsException = (WebServiceException) e;
-                    if (!(wsException.getCause() instanceof IOException)) {
-                        throw new RuntimeException("Exception occurred while making winrm call", wsException);
-                    }
-                    LOG.debug("Ignoring exception and retrying (attempt " + (i + 1) + " of " + (retriesForConnectionFailures + 1) + ") {}", wsException);
-                    try {
-                        Thread.sleep(5 * 1000);
-                    } catch (InterruptedException interruptedException) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("Exception occured while making winrm call", e.initCause(wsException));
-                    }
-                    exceptions.add(wsException);
-                } else {
+                    throw (SOAPFaultException) e;
+                }
+                if (!(e instanceof WebServiceException)) {
                     throw new IllegalStateException("Failure when calling " + method + args, e);
                 }
+                WebServiceException wsException = (WebServiceException) e;
+                if (!(wsException.getCause() instanceof IOException)) {
+                    throw new RuntimeException("Exception occurred while making winrm call", wsException);
+                }
+                if (firstException == null) {
+                    firstException = wsException;
+                }
+                RetryDecision retryDecision = failureRetryPolicy.onWebServiceException(wsException, attempt);
+                if (retryDecision.shouldRetry()) {
+                    LOG.debug("On attempt " + attempt + ", ignoring exception and retrying (" + retryDecision.reason() + ")", 
+                            wsException);
+                    try {
+                        Thread.sleep(retryDecision.pauseTimeMillis());
+                    } catch (InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Exception occured while making winrm call",
+                                targetException);
+                    }
+                } else {
+                    tryAgain = false;
+                }
             }
-        }
-        throw new RuntimeException("failed task " + method.getName(), exceptions.get(0));
+        } while (tryAgain);
+        
+        LOG.debug("failed task \"" + method.getName() + "\" after " + attempt + " attempt(s), rethrowing first exception");
+        throw new RuntimeException("failed task \"" + method.getName() + "\" after " + attempt + " attempt(s)", firstException);
     }
 
+    /**
+     * @deprecated instated use {@link WinRmClientBuilder#failureRetryPolicy(RetryPolicy)}
+     */
     @Deprecated
     public void setRetriesForConnectionFailures(int retries) {
-        this.retriesForConnectionFailures = retries;
+        LOG.warn("method RetryingProxyHandler#setRetriesForConnectionFailures has been deprecated,"
+                + " please use instead WinRmClientBuilder#failureRetryPolicy");
+        failureRetryPolicy = WinRmClientBuilder.simpleCounterRetryPolicy(retries);
     }
 
 }
