@@ -435,6 +435,11 @@
                   <head>To-do:</head>
                 </tag>
               </tags>
+              
+              <!-- See https://stackoverflow.com/questions/15886209/maven-is-not-working-in-java-8-when-javadoc-tags-are-incomplete 
+              -->
+              <additionalparam>-Xdoclint:none</additionalparam>
+              
             </configuration>
             <executions>
               <execution>
