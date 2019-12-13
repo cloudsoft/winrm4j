@@ -4,11 +4,13 @@ import java.io.Writer;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.security.PrivilegedAction;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -19,6 +21,13 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import javax.security.auth.Subject;
+import javax.security.auth.callback.CallbackHandler;
+import javax.security.auth.login.AppConfigurationEntry;
+import javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag;
+import javax.security.auth.login.Configuration;
+import javax.security.auth.login.LoginContext;
+import javax.security.auth.login.LoginException;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.handler.Handler;
 import javax.xml.xpath.XPath;
@@ -29,6 +38,7 @@ import org.apache.cxf.Bus.BusState;
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
+import org.apache.cxf.interceptor.security.NamePasswordCallbackHandler;
 import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
@@ -36,21 +46,30 @@ import org.apache.cxf.ws.addressing.policy.MetadataConstants;
 import org.apache.cxf.ws.policy.PolicyConstants;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.Credentials;
+import org.apache.http.auth.KerberosCredentials;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
-import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.neethi.Policy;
 import org.apache.neethi.builders.PrimitiveAssertion;
+import org.ietf.jgss.GSSContext;
+import org.ietf.jgss.GSSCredential;
+import org.ietf.jgss.GSSException;
+import org.ietf.jgss.GSSManager;
+import org.ietf.jgss.GSSName;
+import org.ietf.jgss.Oid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
 import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
 import io.cloudsoft.winrm4j.client.shell.EnvironmentVariable;
 import io.cloudsoft.winrm4j.client.shell.EnvironmentVariableList;
 import io.cloudsoft.winrm4j.client.shell.Shell;
+import io.cloudsoft.winrm4j.client.spnego.WsmanSPNegoSchemeFactory;
 import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
@@ -78,6 +97,20 @@ public class WinRmClient implements AutoCloseable {
     private final RetryingProxyHandler retryingHandler;
 
     private ShellCommand shellCommand;
+
+    private static final Logger LOG = LoggerFactory.getLogger(WinRmClient.class.getName());
+
+    /**
+     * Object identifier of Kerberos as mechanism used by GSS for obtain the TGT.
+     *
+     * @see http://oid-info.com/get/1.2.840.113554.1.2.2
+     */
+    private static final String KERBEROS_OID = "1.2.840.113554.1.2.2";
+
+    /**
+     * Default JAAS configuration for Kerberos authentication.
+     */
+    private static final Configuration JAAS_KERB_LOGIN_CONF = new KerberosJaasConfiguration();
 
     /**
      * Create a WinRmClient builder
@@ -257,12 +290,23 @@ public class WinRmClient implements AutoCloseable {
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
                 break;
             case AuthSchemes.NTLM: case AuthSchemes.KERBEROS:
-                Credentials creds = new NTCredentials(username, password, null, domain);
+                /*
+                 * If Kerberos authentication is requested two modes can be used:
+                 * 1) with SSO : if a JAAS configuration file is defined the authentication is done with an external
+                 *    TGT get from the cache or a keyTab file or created after input credentials from prompt
+                 *    (depending the configuration set in JAAS login configuration file).
+                 * 2) login : if requested by the builder configuration, a Kerberos authentication will be done with the
+                 *    credentials provided by the builder. The TGT obtained will be stored in the request context
+                 *    in order to be used by the HttpAuthenticator to generate the Spnego token.
+                 */
+                Credentials creds = authenticationScheme == AuthSchemes.KERBEROS && builder.requestNewKerberosTicket
+                        ? getKerberosCreds(username, password)
+                        : new NTCredentials(username, password, null, domain);
 
                 Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
                         .register(AuthSchemes.BASIC, new BasicSchemeFactory())
                         .register(AuthSchemes.SPNEGO,
-                                authenticationScheme.equals(AuthSchemes.NTLM) ? new SpNegoNTLMSchemeFactory() : new SPNegoSchemeFactory())
+                                authenticationScheme.equals(AuthSchemes.NTLM) ? new SpNegoNTLMSchemeFactory() : new WsmanSPNegoSchemeFactory())
                         .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())//
                         .build();
 
@@ -312,6 +356,86 @@ public class WinRmClient implements AutoCloseable {
             default:
                 throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
         }
+    }
+
+    /**
+     * Get new Kerberos credentials (i.e a TGT) with the username and password provided.
+     *
+     * @param username	name of the user to authenticate (format is UPN@DOMAIN)
+     * @param password	password of the user account
+     * @return credentials wrapping the TGT which will be used for obtaining the SPNego token
+     */
+    private static KerberosCredentials getKerberosCreds(String username, String password) {
+        // If the Kerberos Realm is in uppercases (which is the norm) and the domain in the UPN is in lowercases
+        // a KrbException: "Message stream modified" is thrown. To avoid this exception we force the UPN in uppercases
+        // Maybe this should be customizable with a parameter?
+        String canonizedUsername = username.trim().toUpperCase();
+        Subject subject = kerberosLogin(canonizedUsername, password);
+        GSSCredential userCred = Subject.doAs(subject, new PrivilegedAction<GSSCredential>() {
+            public GSSCredential run() {
+                try {
+                    GSSManager manager = GSSManager.getInstance();
+                    GSSName principal = manager.createName(canonizedUsername, null);
+                    Oid mechOid = new Oid(KERBEROS_OID);
+                    return manager.createCredential(principal, GSSContext.DEFAULT_LIFETIME, mechOid,
+                            GSSCredential.INITIATE_ONLY);
+                } catch (GSSException e) {
+                    throw new RuntimeException("Unable to create credential for user \"" //
+                            + username + "\" after login", e);
+                }
+            }
+        });
+        return new KerberosCredentials(userCred);
+    }
+
+    /**
+     * Authenticate the user with the provided password. The login send a request AS-REQ to the Authentication Server.
+     * The response will contain the TGT which will be store in the Subject.
+     *
+     * @param username	name of the user to authenticate (format is UPN@DOMAIN)
+     * @param password	password of the user account
+     * @return subject of the authenticated user
+     */
+    private static Subject kerberosLogin(String username, String password) {
+        CallbackHandler callbackHandler = new NamePasswordCallbackHandler(username, password);
+        Subject subject;
+        try {
+            LoginContext lc = new LoginContext("", null, callbackHandler, JAAS_KERB_LOGIN_CONF);
+            lc.login();
+            subject = lc.getSubject();
+        } catch (LoginException e) {
+            throw new RuntimeException("Exception occured while authenticate the user \"" //
+                    + username + "\" on the KDC", e);
+        }
+        LOG.debug("After kerberos login: subject=" + subject);
+        return subject;
+    }
+
+    /**
+     * Configuration for Kerberos login.<br>
+     * When this configuration is used (instead of the static JAAS config file) the purpose is to obtain a new TGT from
+     * the AS for the credentials provided to the {@link WinRmClientBuilder} and not to use an existing TGT from the
+     * cache. Thus this configuration disable the cache and the prompt in order to force the use of the credentials
+     * stored in the Subject after the login.
+     */
+    private static class KerberosJaasConfiguration extends Configuration {
+        private final AppConfigurationEntry[] appConfigurationEntries;
+
+        KerberosJaasConfiguration() {
+            Map<String, String> options = new HashMap<>();
+            options.put("doNoPrompt", "true");
+            options.put("client", "true");
+            options.put("isInitiator", "true");
+            options.put("useTicketCache", "false");
+            appConfigurationEntries = new AppConfigurationEntry[] { new AppConfigurationEntry(
+                    "com.sun.security.auth.module.Krb5LoginModule", LoginModuleControlFlag.REQUIRED, options) };
+        }
+
+        @Override
+        public AppConfigurationEntry[] getAppConfigurationEntry(String name) {
+            return appConfigurationEntries;
+        }
+
     }
 
     /**
