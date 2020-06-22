@@ -62,6 +62,8 @@ public class WinRmClientBuilder {
     
     protected SSLContext sslContext;
     protected boolean requestNewKerberosTicket;
+    protected boolean useKeyTab;
+    protected String keyTabFilePath;
     
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));
@@ -268,6 +270,26 @@ public class WinRmClientBuilder {
      */
     public WinRmClientBuilder requestNewKerberosTicket(boolean requestNewKerberosTicket) {
         this.requestNewKerberosTicket = requestNewKerberosTicket;
+        return this;
+    }
+
+    /**
+     * Set this parameter to {@code true} for requesting from the KDC a fresh Kerberos TGT with credentials set to the builder.
+     * In this case the configuration defined in the JAAS configuration file will be ignored.
+     * By default this parameter is set to {@code false}.
+     */
+    public WinRmClientBuilder useKeyTab(boolean useKeyTab) {
+        this.useKeyTab = useKeyTab;
+        return this;
+    }
+
+    /**
+     * Set this parameter to {@code true} for requesting from the KDC a fresh Kerberos TGT with credentials set to the builder.
+     * In this case the configuration defined in the JAAS configuration file will be ignored.
+     * By default this parameter is set to {@code false}.
+     */
+    public WinRmClientBuilder keyTabFilePath(String keyTabPath) {
+        this.keyTabFilePath = keyTabPath;
         return this;
     }
 
