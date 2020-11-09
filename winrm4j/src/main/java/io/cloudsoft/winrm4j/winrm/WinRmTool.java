@@ -1,6 +1,8 @@
 package io.cloudsoft.winrm4j.winrm;
 
+import java.io.IOException;
 import java.io.StringWriter;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
@@ -229,6 +231,9 @@ public class WinRmTool {
     	return executeCommand(joinCommands(commands));
     }
 
+    public WinRmToolResponse executeCommand(List<String> commands, Writer out, Writer err) {
+        return executeCommand(joinCommands(commands), out, err);
+    }
     /**
      * Updates operationTimeout for the next <code>executeXxx</code> call
      *
@@ -294,6 +299,14 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executeCommand(String command) {
+        StringWriter out = new StringWriter();
+        StringWriter err = new StringWriter();
+        return executeCommand(command, out, err);
+    }
+
+    public WinRmToolResponse executeCommand(String command, Writer out, Writer err) {
+        WinRmClient.checkNotNull(out, "Out Writer");
+        WinRmClient.checkNotNull(err, "Err Writer");
         WinRmClientBuilder builder = WinRmClient.builder(address);
         builder.authenticationScheme(authenticationScheme);
         if (operationTimeout != null) {
@@ -340,8 +353,6 @@ public class WinRmTool {
             builder.requestNewKerberosTicket(requestNewKerberosTicket);
         }
 
-        StringWriter out = new StringWriter();
-        StringWriter err = new StringWriter();
         WinRmToolResponse winRmToolResponse;
 
         try(WinRmClient client = builder.build()) {
@@ -361,7 +372,16 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executePs(String psCommand) {
-        return executeCommand(compilePs(psCommand));
+        return executePs(psCommand, new StringWriter(), new StringWriter());
+    }
+
+    /**
+     * Executes a Power Shell command.
+     * It is creating a new Shell on the destination host each time it is being called.
+     * @since 0.2
+     */
+    public WinRmToolResponse executePs(String psCommand, Writer err, Writer out) {
+        return executeCommand(compilePs(psCommand), out, err);
     }
 
     /**
@@ -372,7 +392,18 @@ public class WinRmTool {
      * Consider instead uploading a script file, and then executing that as a one-line command.
      */
     public WinRmToolResponse executePs(List<String> commands) {
-        return executeCommand(compilePs(joinPs(commands)));
+        return executePs(commands, new StringWriter(), new StringWriter());
+    }
+
+    /**
+     * Execute a list of Power Shell commands as one command.
+     * The method translates the list of commands to a single String command with a
+     * <code>"\r\n"</code> delimiter and a terminating one.
+     *
+     * Consider instead uploading a script file, and then executing that as a one-line command.
+     */
+    public WinRmToolResponse executePs(List<String> commands, Writer err, Writer out) {
+        return executeCommand(compilePs(joinPs(commands)), out, err);
     }
 
     private String compilePs(String psScript) {

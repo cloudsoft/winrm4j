@@ -200,12 +200,6 @@ public class ShellCommand implements AutoCloseable {
                 }
             }
         }
-        try {
-            out.close();
-            err.close();
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
     }
 
     private void releaseCommand(String commandId) {
