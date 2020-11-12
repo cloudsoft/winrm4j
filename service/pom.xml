@@ -26,7 +26,7 @@
   <parent>
     <groupId>io.cloudsoft.windows</groupId>
     <artifactId>winrm4j-parent</artifactId>
-    <version>0.10.0-SNAPSHOT</version> <!-- WINRM4J_VERSION -->
+    <version>0.10.0</version> <!-- WINRM4J_VERSION -->
     <relativePath>../pom.xml</relativePath>
   </parent>
 
