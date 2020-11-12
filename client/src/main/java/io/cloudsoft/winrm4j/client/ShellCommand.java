@@ -178,6 +178,7 @@ public class ShellCommand implements AutoCloseable {
                     //TODO use passed locale?
                     if (value.length > 0) {
                         out.write(new String(value));
+                        out.flush();
                     }
                     if (Boolean.TRUE.equals(s.isEnd())) {
                         out.close();
@@ -191,6 +192,7 @@ public class ShellCommand implements AutoCloseable {
                     //TODO use passed locale?
                     if (value.length > 0) {
                         err.write(new String(value));
+                        err.flush();
                     }
                     if (Boolean.TRUE.equals(s.isEnd())) {
                         err.close();
