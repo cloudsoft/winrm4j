@@ -380,7 +380,7 @@ public class WinRmTool {
      * It is creating a new Shell on the destination host each time it is being called.
      * @since 0.2
      */
-    public WinRmToolResponse executePs(String psCommand, Writer err, Writer out) {
+    public WinRmToolResponse executePs(String psCommand, Writer out, Writer err) {
         return executeCommand(compilePs(psCommand), out, err);
     }
 
@@ -402,7 +402,7 @@ public class WinRmTool {
      *
      * Consider instead uploading a script file, and then executing that as a one-line command.
      */
-    public WinRmToolResponse executePs(List<String> commands, Writer err, Writer out) {
+    public WinRmToolResponse executePs(List<String> commands, Writer out, Writer err) {
         return executeCommand(compilePs(joinPs(commands)), out, err);
     }
 
