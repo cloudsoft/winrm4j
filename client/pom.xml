@@ -70,6 +70,17 @@
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpcore-nio</artifactId>
       <version>${httpcomponents.httpcore.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpcore</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>${httpcomponents.httpclient.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
@@ -83,6 +94,10 @@
         <exclusion>
           <groupId>org.apache.httpcomponents</groupId>
           <artifactId>httpcore-nio</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpclient</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
