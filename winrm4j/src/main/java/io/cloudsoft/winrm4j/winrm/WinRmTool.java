@@ -189,6 +189,8 @@ public class WinRmTool {
                     if (useHttps != null) {
                         port = port != null ? port : (useHttps ? DEFAULT_WINRM_HTTPS_PORT : DEFAULT_WINRM_PORT);
                     }
+                    if (address==null) throw new IllegalStateException("Address is required, either as host or IP or URL");
+                    if (port==null) throw new IllegalStateException("Either port or useHttps is required, or a URL supplied as address");
                     if (useHttps != null && useHttps) {
                         return "https://" + address + ":" + port + "/wsman";
                     } else {
