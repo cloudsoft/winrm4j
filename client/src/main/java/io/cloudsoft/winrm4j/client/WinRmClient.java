@@ -53,6 +53,7 @@ import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
+import org.apache.http.impl.auth.NTLMSchemeFactory;
 import org.apache.neethi.Policy;
 import org.apache.neethi.builders.PrimitiveAssertion;
 import org.ietf.jgss.GSSContext;
@@ -103,7 +104,7 @@ public class WinRmClient implements AutoCloseable {
     /**
      * Object identifier of Kerberos as mechanism used by GSS for obtain the TGT.
      *
-     * @see http://oid-info.com/get/1.2.840.113554.1.2.2
+     * http://oid-info.com/get/1.2.840.113554.1.2.2
      */
     private static final String KERBEROS_OID = "1.2.840.113554.1.2.2";
 
@@ -283,13 +284,27 @@ public class WinRmClient implements AutoCloseable {
         bp.getRequestContext().put(PolicyConstants.POLICY_OVERRIDE, policy);
 
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint);
+        boolean advancedHttpConfigNeeded = false;
+
+        Credentials creds = new NTCredentials(username, password, null, domain);
 
         switch (authenticationScheme) {
             case AuthSchemes.BASIC:
                 bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
                 break;
-            case AuthSchemes.NTLM: case AuthSchemes.KERBEROS:
+
+            case AuthSchemes.NTLM:
+                Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+                        .register(AuthSchemes.NTLM, new NTLMSchemeFactory())
+                        .register(AuthSchemes.SPNEGO, new SpNegoNTLMSchemeFactory())
+                        .build();
+                bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
+
+                advancedHttpConfigNeeded = true;
+                break;
+
+            case AuthSchemes.KERBEROS:
                 /*
                  * If Kerberos authentication is requested two modes can be used:
                  * 1) with SSO : if a JAAS configuration file is defined the authentication is done with an external
@@ -299,62 +314,60 @@ public class WinRmClient implements AutoCloseable {
                  *    credentials provided by the builder. The TGT obtained will be stored in the request context
                  *    in order to be used by the HttpAuthenticator to generate the Spnego token.
                  */
-                Credentials creds = authenticationScheme == AuthSchemes.KERBEROS && builder.requestNewKerberosTicket
-                        ? getKerberosCreds(username, password)
-                        : new NTCredentials(username, password, null, domain);
+                creds = builder.requestNewKerberosTicket
+                            ? getKerberosCreds(username, password)
+                            : creds;
 
-                Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-                        .register(AuthSchemes.BASIC, new BasicSchemeFactory())
-                        .register(AuthSchemes.SPNEGO,
-                                authenticationScheme.equals(AuthSchemes.NTLM) ? new SpNegoNTLMSchemeFactory() : new WsmanSPNegoSchemeFactory())
-                        .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())//
+                authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+                        .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())
                         .build();
-
-                bp.getRequestContext().put(Credentials.class.getName(), creds);
-                bp.getRequestContext().put("http.autoredirect", true);
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
 
-                AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+                advancedHttpConfigNeeded = true;
+                break;
+            case AuthSchemes.SPNEGO:
+                authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+                        .register(AuthSchemes.SPNEGO, new WsmanSPNegoSchemeFactory())
+                        .build();
+                bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
 
-                if (disableCertificateChecks) {
-                    TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                    tlsClientParameters.setDisableCNCheck(true);
-                    tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-
-                        }
-
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-
-                        }
-
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[0];
-                        }
-                    }});
-                    httpClient.setTlsClientParameters(tlsClientParameters);
-                }
-                if (hostnameVerifier != null || sslSocketFactory != null || sslContext != null) {
-                	TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                	tlsClientParameters.setHostnameVerifier(hostnameVerifier);
-                	tlsClientParameters.setSSLSocketFactory(sslSocketFactory);
-                	tlsClientParameters.setSslContext(sslContext);
-                	httpClient.setTlsClientParameters(tlsClientParameters);
-                }
-                HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
-                httpClientPolicy.setAllowChunking(false);
-                httpClientPolicy.setConnectionTimeout(connectionTimeout);
-                httpClientPolicy.setConnectionRequestTimeout(connectionRequestTimeout);
-                httpClientPolicy.setReceiveTimeout(receiveTimeout);
-
-                httpClient.setClient(httpClientPolicy);
-                httpClient.getClient().setAutoRedirect(true);
+                advancedHttpConfigNeeded = true;
                 break;
             default:
-                throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme);
+                throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme+"; " +
+                        "options are "+Arrays.asList(AuthSchemes.BASIC, AuthSchemes.NTLM, AuthSchemes.SPNEGO, AuthSchemes.KERBEROS));
+        }
+        if (advancedHttpConfigNeeded) {
+            bp.getRequestContext().put(Credentials.class.getName(), creds);
+            bp.getRequestContext().put("http.autoredirect", true);
+
+            AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+
+            if (disableCertificateChecks) {
+                TLSClientParameters tlsClientParameters = new TLSClientParameters();
+                tlsClientParameters.setDisableCNCheck(true);
+                tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
+                    @Override public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {}
+                    @Override public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {}
+                    @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                }});
+                httpClient.setTlsClientParameters(tlsClientParameters);
+            }
+            if (hostnameVerifier != null || sslSocketFactory != null || sslContext != null) {
+                TLSClientParameters tlsClientParameters = new TLSClientParameters();
+                tlsClientParameters.setHostnameVerifier(hostnameVerifier);
+                tlsClientParameters.setSSLSocketFactory(sslSocketFactory);
+                tlsClientParameters.setSslContext(sslContext);
+                httpClient.setTlsClientParameters(tlsClientParameters);
+            }
+            HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+            httpClientPolicy.setAllowChunking(false);
+            httpClientPolicy.setConnectionTimeout(connectionTimeout);
+            httpClientPolicy.setConnectionRequestTimeout(connectionRequestTimeout);
+            httpClientPolicy.setReceiveTimeout(receiveTimeout);
+
+            httpClient.setClient(httpClientPolicy);
+            httpClient.getClient().setAutoRedirect(true);
         }
     }
 
