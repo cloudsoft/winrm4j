@@ -22,23 +22,23 @@ public class WinRmClientBuilder {
      * Timeout applied by default on client side for the opening of the socket (0 meaning infinite waiting).
      */
     // Default matches org.apache.cxf.transports.http.configuration.HTTPClientPolicy.getConnectionTimeout()
-    private static final long DEFAULT_CONNECTION_TIMEOUT = 30L * 1000L;
+    public static final long DEFAULT_CONNECTION_TIMEOUT = 30L * 1000L;
     
     // Default matches org.apache.cxf.transports.http.configuration.HTTPClientPolicy.getConnectionRequestTimeout()
-    private static final long DEFAULT_CONNECTION_REQUEST_TIMEOUT = 60L * 1000L;
+    public static final long DEFAULT_CONNECTION_REQUEST_TIMEOUT = 60L * 1000L;
     
     /**
      * Timeout applied by default on client side for the reading of the socket ({@code null} meaning automatically calculated from
      * the{@link #operationTimeout} by adding to it one minute).
      */
-    private static final Long DEFAULT_RECEIVE_TIMEOUT = null;
-    private static final Long DEFAULT_OPERATION_TIMEOUT = 60L * 1000L;
-    private static final int DEFAULT_RETRIES_FOR_CONNECTION_FAILURES = 1;
+    public static final Long DEFAULT_RECEIVE_TIMEOUT = null;
+    public static final Long DEFAULT_OPERATION_TIMEOUT = 60L * 1000L;
+    public static final int DEFAULT_RETRIES_FOR_CONNECTION_FAILURES = 1;
 
     /**
      * Duration in seconds applied by default for the sleep between 2 retries after a connection failure.
      */
-    private static final long DEFAULT_PAUSE_BETWEEN_RETRIES = 5;
+    public static final long DEFAULT_PAUSE_BETWEEN_RETRIES = 5;
 
     protected WinRmClientContext context;
     protected final URL endpoint;
