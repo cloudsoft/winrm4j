@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import javax.xml.ws.WebServiceException;
 import javax.xml.ws.soap.SOAPFaultException;
 
+import org.apache.cxf.jaxrs.utils.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +48,11 @@ class RetryingProxyHandler implements InvocationHandler {
                 return method.invoke(winrm, args);
             } catch (InvocationTargetException targetException) {
                 Throwable e = targetException.getTargetException();
+                Throwable root = e;
+                while (root.getCause()!=null && root.getCause()!=e) root = root.getCause();
+                if (root.toString().contains("Authorization loop detected on Conduit")) {
+                    throw new IllegalStateException("Incompatible authentication schemes", e);
+                }
                 if (e instanceof SOAPFaultException) {
                     throw (SOAPFaultException) e;
                 }
