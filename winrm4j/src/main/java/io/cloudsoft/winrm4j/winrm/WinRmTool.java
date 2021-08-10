@@ -1,6 +1,5 @@
 package io.cloudsoft.winrm4j.winrm;
 
-import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
@@ -15,6 +14,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.SSLContext;
 
 import org.apache.http.client.config.AuthSchemes;
+import org.apache.http.conn.util.InetAddressUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -174,6 +174,10 @@ public class WinRmTool {
                 }
                 return address;
             } else {
+                if (InetAddressUtils.isIPv6Address(address) && !address.startsWith("[")) {
+                    address = "[" + address + "]";
+                }
+
                 Matcher matcher = matchPort.matcher(address);
 
                 if (matcher.matches()) {
