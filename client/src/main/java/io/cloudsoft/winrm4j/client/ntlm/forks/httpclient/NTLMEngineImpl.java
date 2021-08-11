@@ -1,6 +1,9 @@
 // copy of code from apache-httpclient 4.5.13 package org.apache.http.impl.auth
 // changes:
 // - package name, this header, imports
+// - fix minor errors/typos
+// - allow class to be extended and flags to be customized (increase many things' visibility to protected and make class non-final)
+// - expose Type3 message (package-private) so keys can be gathered
 
 /*
  * ====================================================================
@@ -53,7 +56,7 @@ import org.apache.http.impl.auth.NTLMEngineException;
  *
  * @since 4.1
  */
-final class NTLMEngineImpl implements NTLMEngine {
+public class NTLMEngineImpl implements NTLMEngine {
 
     /** Unicode encoding */
     private static final Charset UNICODE_LITTLE_UNMARKED = Charset.forName("UnicodeLittleUnmarked");
@@ -65,40 +68,40 @@ final class NTLMEngineImpl implements NTLMEngine {
     // and
     // http://msdn.microsoft.com/en-us/library/cc236650%28v=prot.20%29.aspx
     // [MS-NLMP] section 2.2.2.5
-    static final int FLAG_REQUEST_UNICODE_ENCODING = 0x00000001;      // Unicode string encoding requested
-    static final int FLAG_REQUEST_OEM_ENCODING = 0x00000002;      // OEM string encoding requested
-    static final int FLAG_REQUEST_TARGET = 0x00000004;                      // Requests target field
-    static final int FLAG_REQUEST_SIGN = 0x00000010;  // Requests all messages have a signature attached, in NEGOTIATE message.
-    static final int FLAG_REQUEST_SEAL = 0x00000020;  // Request key exchange for message confidentiality in NEGOTIATE message.  MUST be used in conjunction with 56BIT.
-    static final int FLAG_REQUEST_LAN_MANAGER_KEY = 0x00000080;    // Request Lan Manager key instead of user session key
-    static final int FLAG_REQUEST_NTLMv1 = 0x00000200; // Request NTLMv1 security.  MUST be set in NEGOTIATE and CHALLENGE both
-    static final int FLAG_DOMAIN_PRESENT = 0x00001000;        // Domain is present in message
-    static final int FLAG_WORKSTATION_PRESENT = 0x00002000;   // Workstation is present in message
-    static final int FLAG_REQUEST_ALWAYS_SIGN = 0x00008000;   // Requests a signature block on all messages.  Overridden by REQUEST_SIGN and REQUEST_SEAL.
-    static final int FLAG_REQUEST_NTLM2_SESSION = 0x00080000; // From server in challenge, requesting NTLM2 session security
-    static final int FLAG_REQUEST_VERSION = 0x02000000;       // Request protocol version
-    static final int FLAG_TARGETINFO_PRESENT = 0x00800000;    // From server in challenge message, indicating targetinfo is present
-    static final int FLAG_REQUEST_128BIT_KEY_EXCH = 0x20000000; // Request explicit 128-bit key exchange
-    static final int FLAG_REQUEST_EXPLICIT_KEY_EXCH = 0x40000000;     // Request explicit key exchange
-    static final int FLAG_REQUEST_56BIT_ENCRYPTION = 0x80000000;      // Must be used in conjunction with SEAL
+    protected static final int FLAG_REQUEST_UNICODE_ENCODING = 0x00000001;      // Unicode string encoding requested
+    protected static final int FLAG_REQUEST_OEM_ENCODING = 0x00000002;      // OEM string encoding requested
+    protected static final int FLAG_REQUEST_TARGET = 0x00000004;                      // Requests target field
+    protected static final int FLAG_REQUEST_SIGN = 0x00000010;  // Requests all messages have a signature attached, in NEGOTIATE message.
+    protected static final int FLAG_REQUEST_SEAL = 0x00000020;  // Request key exchange for message confidentiality in NEGOTIATE message.  MUST be used in conjunction with 56BIT.
+    protected static final int FLAG_REQUEST_LAN_MANAGER_KEY = 0x00000080;    // Request Lan Manager key instead of user session key
+    protected static final int FLAG_REQUEST_NTLMv1 = 0x00000200; // Request NTLMv1 security.  MUST be set in NEGOTIATE and CHALLENGE both
+    protected static final int FLAG_DOMAIN_PRESENT = 0x00001000;        // Domain is present in message
+    protected static final int FLAG_WORKSTATION_PRESENT = 0x00002000;   // Workstation is present in message
+    protected static final int FLAG_REQUEST_ALWAYS_SIGN = 0x00008000;   // Requests a signature block on all messages.  Overridden by REQUEST_SIGN and REQUEST_SEAL.
+    protected static final int FLAG_REQUEST_NTLM2_SESSION = 0x00080000; // From server in challenge, requesting NTLM2 session security
+    protected static final int FLAG_REQUEST_VERSION = 0x02000000;       // Request protocol version
+    protected static final int FLAG_TARGETINFO_PRESENT = 0x00800000;    // From server in challenge message, indicating targetinfo is present
+    protected static final int FLAG_REQUEST_128BIT_KEY_EXCH = 0x20000000; // Request explicit 128-bit key exchange
+    protected static final int FLAG_REQUEST_EXPLICIT_KEY_EXCH = 0x40000000;     // Request explicit key exchange
+    protected static final int FLAG_REQUEST_56BIT_ENCRYPTION = 0x80000000;      // Must be used in conjunction with SEAL
 
     // Attribute-value identifiers (AvId)
     // according to [MS-NLMP] section 2.2.2.1
-    static final int MSV_AV_EOL = 0x0000; // Indicates that this is the last AV_PAIR in the list.
-    static final int MSV_AV_NB_COMPUTER_NAME = 0x0001; // The server's NetBIOS computer name.
-    static final int MSV_AV_NB_DOMAIN_NAME = 0x0002; // The server's NetBIOS domain name.
-    static final int MSV_AV_DNS_COMPUTER_NAME = 0x0003; // The fully qualified domain name (FQDN) of the computer.
-    static final int MSV_AV_DNS_DOMAIN_NAME = 0x0004; // The FQDN of the domain.
-    static final int MSV_AV_DNS_TREE_NAME = 0x0005; // The FQDN of the forest.
-    static final int MSV_AV_FLAGS = 0x0006; // A 32-bit value indicating server or client configuration.
-    static final int MSV_AV_TIMESTAMP = 0x0007; // server local time
-    static final int MSV_AV_SINGLE_HOST = 0x0008; // A Single_Host_Data structure.
-    static final int MSV_AV_TARGET_NAME = 0x0009; // The SPN of the target server.
-    static final int MSV_AV_CHANNEL_BINDINGS = 0x000A; // A channel bindings hash.
+    protected static final int MSV_AV_EOL = 0x0000; // Indicates that this is the last AV_PAIR in the list.
+    protected static final int MSV_AV_NB_COMPUTER_NAME = 0x0001; // The server's NetBIOS computer name.
+    protected static final int MSV_AV_NB_DOMAIN_NAME = 0x0002; // The server's NetBIOS domain name.
+    protected static final int MSV_AV_DNS_COMPUTER_NAME = 0x0003; // The fully qualified domain name (FQDN) of the computer.
+    protected static final int MSV_AV_DNS_DOMAIN_NAME = 0x0004; // The FQDN of the domain.
+    protected static final int MSV_AV_DNS_TREE_NAME = 0x0005; // The FQDN of the forest.
+    protected static final int MSV_AV_FLAGS = 0x0006; // A 32-bit value indicating server or client configuration.
+    protected static final int MSV_AV_TIMESTAMP = 0x0007; // server local time
+    protected static final int MSV_AV_SINGLE_HOST = 0x0008; // A Single_Host_Data structure.
+    protected static final int MSV_AV_TARGET_NAME = 0x0009; // The SPN of the target server.
+    protected static final int MSV_AV_CHANNEL_BINDINGS = 0x000A; // A channel bindings hash.
 
-    static final int MSV_AV_FLAGS_ACCOUNT_AUTH_CONSTAINED = 0x00000001; // Indicates to the client that the account authentication is constrained.
-    static final int MSV_AV_FLAGS_MIC = 0x00000002; // Indicates that the client is providing message integrity in the MIC field in the AUTHENTICATE_MESSAGE.
-    static final int MSV_AV_FLAGS_UNTRUSTED_TARGET_SPN = 0x00000004; // Indicates that the client is providing a target SPN generated from an untrusted source.
+    protected static final int MSV_AV_FLAGS_ACCOUNT_AUTH_CONSTAINED = 0x00000001; // Indicates to the client that the account authentication is constrained.
+    protected static final int MSV_AV_FLAGS_MIC = 0x00000002; // Indicates that the client is providing message integrity in the MIC field in the AUTHENTICATE_MESSAGE.
+    protected static final int MSV_AV_FLAGS_UNTRUSTED_TARGET_SPN = 0x00000004; // Indicates that the client is providing a target SPN generated from an untrusted source.
 
     /** Secure random generator */
     private static final java.security.SecureRandom RND_GEN;
@@ -139,7 +142,7 @@ final class NTLMEngineImpl implements NTLMEngine {
 
     private static final String TYPE_1_MESSAGE = new Type1Message().getResponse();
 
-    NTLMEngineImpl() {
+    protected NTLMEngineImpl() {
     }
 
     /**
@@ -177,14 +180,19 @@ final class NTLMEngineImpl implements NTLMEngine {
      *            the 8 byte array the server sent.
      * @return The type 3 message.
      * @throws NTLMEngineException
-     *             If {@link #Type3Message
+     *             If {@link #getType3Message
      *             (String, String, String, String, byte[], int, String, byte[])} fails.
      */
     static String getType3Message(final String user, final String password, final String host, final String domain,
             final byte[] nonce, final int type2Flags, final String target, final byte[] targetInformation)
             throws NTLMEngineException {
+        return getType3MessageObject(user, password, host, domain, nonce, type2Flags, target, targetInformation).getResponse();
+    }
+    static Type3Message getType3MessageObject(final String user, final String password, final String host, final String domain,
+            final byte[] nonce, final int type2Flags, final String target, final byte[] targetInformation)
+            throws NTLMEngineException {
         return new Type3Message(domain, host, user, password, nonce, type2Flags, target,
-                targetInformation).getResponse();
+                targetInformation);
     }
 
     /**
@@ -205,7 +213,7 @@ final class NTLMEngineImpl implements NTLMEngine {
      *            the 8 byte array the server sent.
      * @return The type 3 message.
      * @throws NTLMEngineException
-     *             If {@link #Type3Message
+     *             If {@link #getType3Message
      *             (String, String, String, String, byte[], int, String, byte[], Certificate, byte[], byte[])} fails.
      */
     static String getType3Message(final String user, final String password, final String host, final String domain,
@@ -1368,7 +1376,7 @@ final class NTLMEngineImpl implements NTLMEngine {
     }
 
     /** Type 2 message class */
-    static class Type2Message extends NTLMMessage {
+    protected static class Type2Message extends NTLMMessage {
         protected final byte[] challenge;
         protected String target;
         protected byte[] targetInfo;
@@ -1447,7 +1455,7 @@ final class NTLMEngineImpl implements NTLMEngine {
     }
 
     /** Type 3 message assembly class */
-    static class Type3Message extends NTLMMessage {
+    protected static class Type3Message extends NTLMMessage {
         // For mic computation
         protected final byte[] type1Message;
         protected final byte[] type2Message;
@@ -1622,7 +1630,7 @@ final class NTLMEngineImpl implements NTLMEngine {
             }
             final Charset charset = getCharset(type2Flags);
             hostBytes = unqualifiedHost != null ? unqualifiedHost.getBytes(charset) : null;
-             domainBytes = unqualifiedDomain != null ? unqualifiedDomain
+            domainBytes = unqualifiedDomain != null ? unqualifiedDomain
                 .toUpperCase(Locale.ROOT).getBytes(charset) : null;
             userBytes = user.getBytes(charset);
         }
@@ -2098,16 +2106,30 @@ final class NTLMEngineImpl implements NTLMEngine {
             final String domain,
             final String workstation,
             final String challenge) throws NTLMEngineException {
+        return generateType3MsgObject(username, password, domain, workstation, challenge).getResponse();
+    }
+
+    @Override
+    public Type3Message generateType3MsgObject(
+            final String username,
+            final String password,
+            final String domain,
+            final String workstation,
+            final String challenge) throws NTLMEngineException {
         final Type2Message t2m = new Type2Message(challenge);
-        return getType3Message(
+        return getType3MessageObject(
                 username,
                 password,
                 workstation,
                 domain,
                 t2m.getChallenge(),
-                t2m.getFlags(),
+                getFlagsForType3Msg(t2m),
                 t2m.getTarget(),
                 t2m.getTargetInfo());
+    }
+
+    protected int getFlagsForType3Msg(Type2Message t2m) {
+        return t2m.getFlags();
     }
 
 }

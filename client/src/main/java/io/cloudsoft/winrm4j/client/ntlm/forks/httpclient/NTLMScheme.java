@@ -1,6 +1,7 @@
 // copy of code from apache-httpclient 4.5.13 package org.apache.http.impl.auth
 // changes:
 // - package name, this header, imports
+// - gather NTLM signing key and attach to context
 
 /*
  * ====================================================================
@@ -30,6 +31,7 @@
  */
 package io.cloudsoft.winrm4j.client.ntlm.forks.httpclient;
 
+import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
 import org.apache.http.auth.AUTH;
@@ -40,6 +42,7 @@ import org.apache.http.auth.MalformedChallengeException;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.impl.auth.AuthSchemeBase;
 import org.apache.http.message.BufferedHeader;
+import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.Args;
 import org.apache.http.util.CharArrayBuffer;
 
@@ -50,6 +53,8 @@ import org.apache.http.util.CharArrayBuffer;
  * @since 4.0
  */
 public class NTLMScheme extends AuthSchemeBase {
+
+    public static final String NTLM_ENCRYPTION_EXPORTED_SESSION_KEY = "NTLM-Encryption-ExportedSessionKey";
 
     enum State {
         UNINITIATED,
@@ -64,6 +69,7 @@ public class NTLMScheme extends AuthSchemeBase {
 
     private State state;
     private String challenge;
+    private Type3Message signAndSealData;
 
     public NTLMScheme(final NTLMEngine engine) {
         super();
@@ -144,12 +150,14 @@ public class NTLMScheme extends AuthSchemeBase {
                     ntcredentials.getWorkstation());
             this.state = State.MSG_TYPE1_GENERATED;
         } else if (this.state == State.MSG_TYPE2_RECEVIED) {
-            response = this.engine.generateType3Msg(
+            Type3Message responseO = this.engine.generateType3MsgObject(
                     ntcredentials.getUserName(),
                     ntcredentials.getPassword(),
                     ntcredentials.getDomain(),
                     ntcredentials.getWorkstation(),
                     this.challenge);
+            signAndSealData = responseO;
+            response = responseO.getResponse();
             this.state = State.MSG_TYPE3_GENERATED;
         } else {
             throw new AuthenticationException("Unexpected state: " + this.state);
@@ -168,6 +176,18 @@ public class NTLMScheme extends AuthSchemeBase {
     @Override
     public boolean isComplete() {
         return this.state == State.MSG_TYPE3_GENERATED || this.state == State.FAILED;
+    }
+
+    @Override
+    public Header authenticate(
+            final Credentials credentials,
+            final HttpRequest request,
+            final HttpContext context) throws AuthenticationException {
+        Header result = authenticate(credentials, request);
+        if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
+            context.setAttribute(NTLM_ENCRYPTION_EXPORTED_SESSION_KEY, signAndSealData.getExportedSessionKey());
+        }
+        return result;
     }
 
 }

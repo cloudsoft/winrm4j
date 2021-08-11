@@ -1,6 +1,7 @@
 // copy of code from apache-httpclient 4.5.13 package org.apache.http.impl.auth
 // changes:
 // - package name, this header, imports
+// - expose Type3 message (package-private) so keys can be gathered
 
 /*
  * ====================================================================
@@ -30,6 +31,7 @@
  */
 package io.cloudsoft.winrm4j.client.ntlm.forks.httpclient;
 
+import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import org.apache.http.impl.auth.NTLMEngineException;
 
 /**
@@ -67,6 +69,13 @@ public interface NTLMEngine {
      * @throws NTLMEngineException
      */
     String generateType3Msg(
+            String username,
+            String password,
+            String domain,
+            String workstation,
+            String challenge) throws NTLMEngineException;
+
+    Type3Message generateType3MsgObject(
             String username,
             String password,
             String domain,
