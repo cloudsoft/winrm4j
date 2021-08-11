@@ -1,3 +1,7 @@
+// copy of code from apache-httpclient 4.5.13 package org.apache.http.impl.auth
+// changes:
+// - package name, this header, imports
+
 /*
  * ====================================================================
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -24,7 +28,9 @@
  * <http://www.apache.org/>.
  *
  */
-package org.apache.http.impl.auth;
+package io.cloudsoft.winrm4j.client.ntlm.forks.httpclient;
+
+import org.apache.http.impl.auth.NTLMEngineException;
 
 /**
  * Abstract NTLM authentication engine. The engine can be used to
@@ -68,4 +74,3 @@ public interface NTLMEngine {
             String challenge) throws NTLMEngineException;
 
 }
-

@@ -1,3 +1,7 @@
+// copy of code from apache-httpclient 4.5.13 package org.apache.http.impl.auth
+// changes:
+// - package name, this header, imports
+
 /*
  * ====================================================================
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -24,7 +28,7 @@
  * <http://www.apache.org/>.
  *
  */
-package org.apache.http.impl.auth;
+package io.cloudsoft.winrm4j.client.ntlm.forks.httpclient;
 
 import java.nio.charset.Charset;
 import java.security.Key;
@@ -41,6 +45,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.Consts;
+import org.apache.http.impl.auth.NTLMEngineException;
 
 /**
  * Provides an implementation for NTLMv1, NTLMv2, and NTLM2 Session forms of the NTLM
@@ -2106,4 +2111,3 @@ final class NTLMEngineImpl implements NTLMEngine {
     }
 
 }
-

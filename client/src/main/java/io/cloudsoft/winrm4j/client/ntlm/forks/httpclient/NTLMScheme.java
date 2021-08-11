@@ -1,3 +1,7 @@
+// copy of code from apache-httpclient 4.5.13 package org.apache.http.impl.auth
+// changes:
+// - package name, this header, imports
+
 /*
  * ====================================================================
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -24,7 +28,7 @@
  * <http://www.apache.org/>.
  *
  */
-package org.apache.http.impl.auth;
+package io.cloudsoft.winrm4j.client.ntlm.forks.httpclient;
 
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
@@ -34,6 +38,7 @@ import org.apache.http.auth.Credentials;
 import org.apache.http.auth.InvalidCredentialsException;
 import org.apache.http.auth.MalformedChallengeException;
 import org.apache.http.auth.NTCredentials;
+import org.apache.http.impl.auth.AuthSchemeBase;
 import org.apache.http.message.BufferedHeader;
 import org.apache.http.util.Args;
 import org.apache.http.util.CharArrayBuffer;
@@ -166,4 +171,3 @@ public class NTLMScheme extends AuthSchemeBase {
     }
 
 }
-
