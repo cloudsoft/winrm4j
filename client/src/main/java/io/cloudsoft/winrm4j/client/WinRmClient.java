@@ -1,5 +1,6 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.spnego.WsmanViaSpnegoSchemeFactory;
 import java.io.Writer;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
@@ -51,7 +52,6 @@ import org.apache.http.auth.NTCredentials;
 import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
-import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.NTLMSchemeFactory;
 import org.apache.neethi.Policy;
@@ -66,11 +66,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
-import io.cloudsoft.winrm4j.client.ntlm.SpNegoNTLMSchemeFactory;
+import io.cloudsoft.winrm4j.client.ntlm.NtlmMasqAsSpnegoSchemeFactory;
 import io.cloudsoft.winrm4j.client.shell.EnvironmentVariable;
 import io.cloudsoft.winrm4j.client.shell.EnvironmentVariableList;
 import io.cloudsoft.winrm4j.client.shell.Shell;
-import io.cloudsoft.winrm4j.client.spnego.WsmanSPNegoSchemeFactory;
 import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
@@ -297,7 +296,7 @@ public class WinRmClient implements AutoCloseable {
             case AuthSchemes.NTLM:
                 Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
                         .register(AuthSchemes.NTLM, new NTLMSchemeFactory())
-                        .register(AuthSchemes.SPNEGO, new SpNegoNTLMSchemeFactory())
+                        .register(AuthSchemes.SPNEGO, new NtlmMasqAsSpnegoSchemeFactory())
                         .build();
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
 
@@ -327,7 +326,7 @@ public class WinRmClient implements AutoCloseable {
                 break;
             case AuthSchemes.SPNEGO:
                 authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-                        .register(AuthSchemes.SPNEGO, new WsmanSPNegoSchemeFactory())
+                        .register(AuthSchemes.SPNEGO, new WsmanViaSpnegoSchemeFactory())
                         .build();
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
 

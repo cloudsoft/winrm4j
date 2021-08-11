@@ -15,9 +15,9 @@ import org.ietf.jgss.Oid;
  * Thus when we access to the HTTPS listener of the WinRM service the SPN built is HTTPS/HOSTNAME which doesn't exist.
  * When WinRM is configured the SPN automatically added is: WSMAN/HOSTNAME.
  */
-public class WsmanSPNegoScheme extends SPNegoScheme {
+public class WsmanViaSpnegoScheme extends SPNegoScheme {
 
-    public WsmanSPNegoScheme(final boolean stripPort, final boolean useCanonicalHostname) {
+    public WsmanViaSpnegoScheme(final boolean stripPort, final boolean useCanonicalHostname) {
         super(stripPort, useCanonicalHostname);
     }
     
