@@ -10,6 +10,7 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.SSLContext;
 
+import org.apache.http.auth.AuthScheme;
 import org.apache.http.client.config.AuthSchemes;
 
 import io.cloudsoft.winrm4j.client.retry.RetryPolicy;
@@ -62,7 +63,8 @@ public class WinRmClientBuilder {
     
     protected SSLContext sslContext;
     protected boolean requestNewKerberosTicket;
-    
+    protected PayloadEncryptionMode payloadEncryptionMode;
+
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));
     }
@@ -285,4 +287,14 @@ public class WinRmClientBuilder {
             throw new IllegalArgumentException(e);
         }
     }
+
+    public WinRmClientBuilder payloadEncryptionMode(PayloadEncryptionMode payloadEncryptionMode) {
+        this.payloadEncryptionMode = payloadEncryptionMode;
+        return this;
+    }
+
+    public PayloadEncryptionMode payloadEncryptionMode() {
+        return payloadEncryptionMode!=null ? payloadEncryptionMode : PayloadEncryptionMode.OPTIONAL;
+    }
+
 }

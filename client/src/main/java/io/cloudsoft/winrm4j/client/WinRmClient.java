@@ -1,5 +1,7 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
+import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption.NTCredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.spnego.WsmanViaSpnegoSchemeFactory;
 import java.io.Writer;
 import java.lang.reflect.Proxy;
@@ -79,12 +81,15 @@ import io.cloudsoft.winrm4j.client.wsman.OptionType;
  * TODO confirm if commands can be called in parallel in one shell (probably not)!
  */
 public class WinRmClient implements AutoCloseable {
+
+
     static final int MAX_ENVELOPER_SIZE = 153600;
     static final String RESOURCE_URI = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd";
 
     private final String workingDirectory;
     private final Locale locale;
     private final Map<String, String> environment;
+    private final PayloadEncryptionMode payloadEncryptionMode;
 
     // Can be changed throughout object's lifetime, but deprecated
     private String operationTimeout;
@@ -207,6 +212,7 @@ public class WinRmClient implements AutoCloseable {
         this.winrm = (WinRm) Proxy.newProxyInstance(WinRm.class.getClassLoader(),
                 new Class[] {WinRm.class, BindingProvider.class},
                 retryingHandler);
+        this.payloadEncryptionMode = builder.payloadEncryptionMode();
     }
 
     /** 
@@ -221,7 +227,7 @@ public class WinRmClient implements AutoCloseable {
     }
 
     private WinRm getService(WinRmClientBuilder builder) {
-        WinRm service = WinRmFactory.newInstance(context.getBus());
+        WinRm service = WinRmFactory.newInstance(context.getBus(), builder);
         initializeClientAndService(service, builder);
         return service;
     }
@@ -285,10 +291,13 @@ public class WinRmClient implements AutoCloseable {
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint);
         boolean advancedHttpConfigNeeded = false;
 
-        Credentials creds = new NTCredentials(username, password, null, domain);
+        Credentials creds = new NTCredentialsWithEncryption(username, password, null, domain);
 
         switch (authenticationScheme) {
             case AuthSchemes.BASIC:
+                if (builder.payloadEncryptionMode().isRequired()) {
+                    throw new IllegalStateException("Encryption is required, which is not compatible with auth");
+                }
                 bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
                 break;
@@ -313,6 +322,10 @@ public class WinRmClient implements AutoCloseable {
                  *    credentials provided by the builder. The TGT obtained will be stored in the request context
                  *    in order to be used by the HttpAuthenticator to generate the Spnego token.
                  */
+                if (builder.payloadEncryptionMode().isRequired()) {
+                    throw new IllegalStateException("Encryption is required, which is not implemented for Kerberos");
+                    // might not be too hard to do -- get the sealing keys from kerberos by extending CredentialsWithEncryption
+                }
                 creds = builder.requestNewKerberosTicket
                             ? getKerberosCreds(username, password)
                             : creds;

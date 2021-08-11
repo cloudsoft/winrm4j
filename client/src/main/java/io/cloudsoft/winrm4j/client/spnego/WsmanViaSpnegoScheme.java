@@ -34,6 +34,8 @@ public class WsmanViaSpnegoScheme extends SPNegoScheme {
             inputBuff = new byte[0];
         }
         final GSSManager manager = getManager();
+
+        // only seems to work if default realm is available on the system (?)
         final GSSName serverName = manager.createName("WSMAN" + "@" + authServer, GSSName.NT_HOSTBASED_SERVICE);
 
         final GSSCredential gssCredential;

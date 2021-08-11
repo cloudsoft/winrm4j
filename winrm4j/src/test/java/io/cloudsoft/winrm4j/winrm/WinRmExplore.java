@@ -1,5 +1,6 @@
 package io.cloudsoft.winrm4j.winrm;
 
+import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
 import io.cloudsoft.winrm4j.client.WinRmClientContext;
 import org.apache.http.client.config.AuthSchemes;
 
@@ -27,6 +28,7 @@ public class WinRmExplore {
 
 //                .port(5985)
                 .useHttps(false)
+                .payloadEncryptionMode(PayloadEncryptionMode.OPTIONAL)
 
 //                .port(5986)
 //                .useHttps(true)

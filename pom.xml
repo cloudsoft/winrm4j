@@ -134,6 +134,7 @@
           </archive>
         </configuration>
       </plugin>
+<!-- disable enforcer - too many maven versions get confused eg commons-codec, etc, esp w ws-security added
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
@@ -161,6 +162,7 @@
           </execution>
       </executions>
     </plugin>
+-->
     </plugins>
     <pluginManagement>
       <plugins>

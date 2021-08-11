@@ -1,5 +1,6 @@
 package io.cloudsoft.winrm4j.winrm;
 
+import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
@@ -59,6 +60,7 @@ public class WinRmTool {
     private final SSLContext sslContext;
     private final WinRmClientContext context;
     private final boolean requestNewKerberosTicket;
+    private PayloadEncryptionMode payloadEncryptionMode;
 
     public static class Builder {
         private String authenticationScheme = AuthSchemes.NTLM;
@@ -76,6 +78,7 @@ public class WinRmTool {
         private SSLContext sslContext;
         private WinRmClientContext context;
         private boolean requestNewKerberosTicket;
+        private PayloadEncryptionMode payloadEncryptionMode;
 
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
@@ -155,12 +158,17 @@ public class WinRmTool {
             return this;
         }
 
+        public Builder payloadEncryptionMode(PayloadEncryptionMode x) {
+            this.payloadEncryptionMode = x;
+            return this;
+        }
+
         public WinRmTool build() {
             return new WinRmTool(getEndpointUrl(address, useHttps, port),
                     domain, username, password, authenticationScheme,
                     disableCertificateChecks, workingDirectory,
                     environment, hostnameVerifier, sslSocketFactory, sslContext,
-                    context, requestNewKerberosTicket);
+                    context, requestNewKerberosTicket, payloadEncryptionMode);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -201,6 +209,7 @@ public class WinRmTool {
         }
     }
 
+    @Deprecated /** @deprecated use bigger constructor */
     private WinRmTool(String address, String domain, String username,
             String password, String authenticationScheme,
             boolean disableCertificateChecks, String workingDirectory,
@@ -220,6 +229,28 @@ public class WinRmTool {
         this.sslContext = sslContext;
         this.context = context;
         this.requestNewKerberosTicket = requestNewKerberosTicket;
+    }
+
+    private WinRmTool(String address, String domain, String username,
+                      String password, String authenticationScheme,
+                      boolean disableCertificateChecks, String workingDirectory,
+                      Map<String, String> environment, HostnameVerifier hostnameVerifier,
+                      SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context,
+                      boolean requestNewKerberosTicket, PayloadEncryptionMode payloadEncryptionMode) {
+        this.disableCertificateChecks = disableCertificateChecks;
+        this.address = address;
+        this.domain = domain;
+        this.username = username;
+        this.password = password;
+        this.authenticationScheme = authenticationScheme;
+        this.workingDirectory = workingDirectory;
+        this.environment = environment;
+        this.hostnameVerifier = hostnameVerifier;
+        this.sslSocketFactory = sslSocketFactory;
+        this.sslContext = sslContext;
+        this.context = context;
+        this.requestNewKerberosTicket = requestNewKerberosTicket;
+        this.payloadEncryptionMode = payloadEncryptionMode;
     }
 
     /**
@@ -358,6 +389,7 @@ public class WinRmTool {
         if (requestNewKerberosTicket) {
             builder.requestNewKerberosTicket(requestNewKerberosTicket);
         }
+        builder.payloadEncryptionMode(payloadEncryptionMode);
 
         WinRmToolResponse winRmToolResponse;
 

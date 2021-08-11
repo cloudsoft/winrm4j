@@ -31,6 +31,7 @@
  */
 package io.cloudsoft.winrm4j.client.ntlm.forks.httpclient;
 
+import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
@@ -53,8 +54,6 @@ import org.apache.http.util.CharArrayBuffer;
  * @since 4.0
  */
 public class NTLMScheme extends AuthSchemeBase {
-
-    public static final String NTLM_ENCRYPTION_EXPORTED_SESSION_KEY = "NTLM-Encryption-ExportedSessionKey";
 
     enum State {
         UNINITIATED,
@@ -184,9 +183,17 @@ public class NTLMScheme extends AuthSchemeBase {
             final HttpRequest request,
             final HttpContext context) throws AuthenticationException {
         Header result = authenticate(credentials, request);
-        if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
-            context.setAttribute(NTLM_ENCRYPTION_EXPORTED_SESSION_KEY, signAndSealData.getExportedSessionKey());
+
+        if (credentials instanceof CredentialsWithEncryption) {
+            ((CredentialsWithEncryption)credentials).setIsAuthenticated(true);
+
+            if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
+                // TODO which is client, server?
+                ((CredentialsWithEncryption)credentials).setClientKey( signAndSealData.getExportedSessionKey() );
+                ((CredentialsWithEncryption)credentials).setServerKey( signAndSealData.getExportedSessionKey() );
+            }
         }
+
         return result;
     }
 
