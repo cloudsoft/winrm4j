@@ -108,11 +108,6 @@ public class WinRmClient implements AutoCloseable {
     private static final String KERBEROS_OID = "1.2.840.113554.1.2.2";
 
     /**
-     * Default JAAS configuration for Kerberos authentication.
-     */
-    private static final Configuration JAAS_KERB_LOGIN_CONF = new KerberosJaasConfiguration();
-
-    /**
      * Create a WinRmClient builder
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
@@ -250,6 +245,8 @@ public class WinRmClient implements AutoCloseable {
         String username = builder.username;
         String password = builder.password;
         String domain = builder.domain;
+        String keyTabFilePath = builder.keyTabFilePath;
+        boolean useKeyTab = builder.useKeyTab;
         boolean disableCertificateChecks = builder.disableCertificateChecks;
         HostnameVerifier hostnameVerifier = builder.hostnameVerifier;
         SSLSocketFactory sslSocketFactory = builder.sslSocketFactory;
@@ -300,7 +297,7 @@ public class WinRmClient implements AutoCloseable {
                  *    in order to be used by the HttpAuthenticator to generate the Spnego token.
                  */
                 Credentials creds = authenticationScheme == AuthSchemes.KERBEROS && builder.requestNewKerberosTicket
-                        ? getKerberosCreds(username, password)
+                        ? getKerberosCreds(username, password, keyTabFilePath, useKeyTab)
                         : new NTCredentials(username, password, null, domain);
 
                 Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
@@ -365,12 +362,12 @@ public class WinRmClient implements AutoCloseable {
      * @param password	password of the user account
      * @return credentials wrapping the TGT which will be used for obtaining the SPNego token
      */
-    private static KerberosCredentials getKerberosCreds(String username, String password) {
+    private static KerberosCredentials getKerberosCreds(String username, String password, String keyTabFilePath, boolean useKeyTab) {
         // If the Kerberos Realm is in uppercases (which is the norm) and the domain in the UPN is in lowercases
         // a KrbException: "Message stream modified" is thrown. To avoid this exception we force the UPN in uppercases
         // Maybe this should be customizable with a parameter?
-        String canonizedUsername = username.trim().toUpperCase();
-        Subject subject = kerberosLogin(canonizedUsername, password);
+        String canonizedUsername = username.trim();
+        Subject subject = kerberosLogin(canonizedUsername, password, useKeyTab, keyTabFilePath);
         GSSCredential userCred = Subject.doAs(subject, new PrivilegedAction<GSSCredential>() {
             public GSSCredential run() {
                 try {
@@ -396,11 +393,11 @@ public class WinRmClient implements AutoCloseable {
      * @param password	password of the user account
      * @return subject of the authenticated user
      */
-    private static Subject kerberosLogin(String username, String password) {
+    private static Subject kerberosLogin(String username, String password, boolean useKeyTab, String keyTabPath) {
         CallbackHandler callbackHandler = new NamePasswordCallbackHandler(username, password);
         Subject subject;
         try {
-            LoginContext lc = new LoginContext("", null, callbackHandler, JAAS_KERB_LOGIN_CONF);
+            LoginContext lc = new LoginContext("", null,  callbackHandler, new KerberosJaasConfiguration(useKeyTab, keyTabPath, username));
             lc.login();
             subject = lc.getSubject();
         } catch (LoginException e) {
@@ -412,7 +409,7 @@ public class WinRmClient implements AutoCloseable {
     }
 
     /**
-     * Configuration for Kerberos login.<br>
+     * Configuration for Kerberos login using username and password or keytab.<br>
      * When this configuration is used (instead of the static JAAS config file) the purpose is to obtain a new TGT from
      * the AS for the credentials provided to the {@link WinRmClientBuilder} and not to use an existing TGT from the
      * cache. Thus this configuration disable the cache and the prompt in order to force the use of the credentials
@@ -421,14 +418,20 @@ public class WinRmClient implements AutoCloseable {
     private static class KerberosJaasConfiguration extends Configuration {
         private final AppConfigurationEntry[] appConfigurationEntries;
 
-        KerberosJaasConfiguration() {
+        KerberosJaasConfiguration(boolean useKeyTab, String keyTabFilePath, String username) {
             Map<String, String> options = new HashMap<>();
             options.put("doNoPrompt", "true");
             options.put("client", "true");
-            options.put("isInitiator", "true");
             options.put("useTicketCache", "false");
-            appConfigurationEntries = new AppConfigurationEntry[] { new AppConfigurationEntry(
-                    "com.sun.security.auth.module.Krb5LoginModule", LoginModuleControlFlag.REQUIRED, options) };
+            options.put("isInitiator", "true");
+
+            if (useKeyTab) {
+                options.put("useKeyTab", "true");
+                options.put("keyTab", keyTabFilePath);
+                options.put("principal", username);
+            }
+            appConfigurationEntries = new AppConfigurationEntry[]{new AppConfigurationEntry(
+                    "com.sun.security.auth.module.Krb5LoginModule", LoginModuleControlFlag.REQUIRED, options)};
         }
 
         @Override

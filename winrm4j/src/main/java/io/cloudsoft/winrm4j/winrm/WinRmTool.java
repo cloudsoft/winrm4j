@@ -59,6 +59,8 @@ public class WinRmTool {
     private final SSLContext sslContext;
     private final WinRmClientContext context;
     private final boolean requestNewKerberosTicket;
+    private final boolean useKeyTab;
+    private final String keyTabFilePath;
 
     public static class Builder {
         private String authenticationScheme = AuthSchemes.NTLM;
@@ -76,6 +78,8 @@ public class WinRmTool {
         private SSLContext sslContext;
         private WinRmClientContext context;
         private boolean requestNewKerberosTicket;
+        private boolean useKeyTab;
+        private String keyTabFilePath;
 
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
@@ -155,12 +159,22 @@ public class WinRmTool {
             return this;
         }
 
+        public Builder useKeyTab(boolean useKeyTab) {
+            this.useKeyTab = useKeyTab;
+            return this;
+        }
+
+        public Builder useKeyTab(String keyTabFilePath) {
+            this.keyTabFilePath = keyTabFilePath;
+            return this;
+        }
+
         public WinRmTool build() {
             return new WinRmTool(getEndpointUrl(address, useHttps, port),
                     domain, username, password, authenticationScheme,
                     disableCertificateChecks, workingDirectory,
                     environment, hostnameVerifier, sslSocketFactory, sslContext,
-                    context, requestNewKerberosTicket);
+                    context, requestNewKerberosTicket, useKeyTab, keyTabFilePath);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -204,7 +218,7 @@ public class WinRmTool {
             boolean disableCertificateChecks, String workingDirectory,
             Map<String, String> environment, HostnameVerifier hostnameVerifier,
             SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context,
-            boolean requestNewKerberosTicket) {
+            boolean requestNewKerberosTicket, boolean useKeyTab, String keytabFilePath) {
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
         this.domain = domain;
@@ -218,6 +232,8 @@ public class WinRmTool {
         this.sslContext = sslContext;
         this.context = context;
         this.requestNewKerberosTicket = requestNewKerberosTicket;
+        this.useKeyTab=useKeyTab;
+        this.keyTabFilePath=keytabFilePath;
     }
 
     /**
@@ -355,6 +371,12 @@ public class WinRmTool {
         }
         if (requestNewKerberosTicket) {
             builder.requestNewKerberosTicket(requestNewKerberosTicket);
+        }
+        if (useKeyTab) {
+            builder.useKeyTab(true);
+        }
+        if (keyTabFilePath != null) {
+            builder.keyTabFilePath(keyTabFilePath);
         }
 
         WinRmToolResponse winRmToolResponse;
