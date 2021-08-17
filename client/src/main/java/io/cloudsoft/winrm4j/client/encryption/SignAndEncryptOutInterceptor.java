@@ -1,11 +1,13 @@
 package io.cloudsoft.winrm4j.client.encryption;
 
 import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
+import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.concat;
+import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.getLittleEndianUnsignedInt;
+import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys.NegotiateFlags;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.zip.CRC32;
 import org.apache.cxf.interceptor.StaxOutInterceptor;
 import org.apache.cxf.io.WriteOnCloseOutputStream;
@@ -13,10 +15,6 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 import org.apache.http.auth.Credentials;
-import org.bouncycastle.crypto.engines.RC4Engine;
-import org.bouncycastle.crypto.io.CipherOutputStream;
-import org.bouncycastle.crypto.params.KeyParameter;
-import org.bouncycastle.jcajce.provider.symmetric.ARC4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +23,11 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
     private static final Logger LOG = LoggerFactory.getLogger(SignAndEncryptOutInterceptor.class);
 
     public static final String APPLIED = SignAndEncryptOutInterceptor.class.getSimpleName()+".APPLIED";
+
+    public static final String ENCRYPTED_BOUNDARY_PREFIX = "--Encrypted Boundary";
+    public static final String ENCRYPTED_BOUNDARY_CR = ENCRYPTED_BOUNDARY_PREFIX+"\r\n";
+    public static final String ENCRYPTED_BOUNDARY_END = ENCRYPTED_BOUNDARY_PREFIX+"--\r\n";
+
     private final PayloadEncryptionMode payloadEncryptionMode;
 
     public SignAndEncryptOutInterceptor(PayloadEncryptionMode payloadEncryptionMode) {
@@ -95,85 +98,142 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
             try {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-                out.write("--Encrypted Boundary\r\n".getBytes());
+                out.write(ENCRYPTED_BOUNDARY_CR.getBytes());
                 out.write(("\tContent-Type: " + "application/HTTP-SPNEGO-session-encrypted" + "\r\n").getBytes());
 
-                //message.get(Message.CONTENT_TYPE); // Content-Type -> application/soap+xml; action="http://schemas.xmlsoap.org/ws/2004/09/transfer/Create"
-                // from python
+                //message.get(Message.CONTENT_TYPE); - if we need the action // Content-Type -> application/soap+xml; action="http://schemas.xmlsoap.org/ws/2004/09/transfer/Create"
                 out.write(("\tOriginalContent: type=application/soap+xml;charset=UTF-8;Length=" + messageBody.length + "\r\n").getBytes());
 
-                out.write("--Encrypted Boundary\r\n".getBytes());
+                out.write(ENCRYPTED_BOUNDARY_CR.getBytes());
                 out.write("\tContent-Type: application/octet-stream\r\n".getBytes());
 
-                //encrypted_stream = self._build_message(message, host)
                 writeNtlmEncrypted(messageBody, out);
 
-                out.write("--\r\n".getBytes());
+                out.write(ENCRYPTED_BOUNDARY_END.getBytes());
 
-                message.put(Message.CONTENT_TYPE, "multipart/encrypted");
+                message.put(Message.CONTENT_TYPE, "multipart/encrypted;protocol=\"application/HTTP-SPNEGO-session-encrypted\";boundary=\"Encrypted Boundary\"");
+                message.put(Message.ENCODING, null);
                 return out.toByteArray();
 
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new IllegalStateException("Cannot encrypt WinRM message", e);
             }
         }
 
-        private byte[] encrypt(byte[] in) throws IOException {
+        private byte[] sign(byte[] in) throws IOException {
+            return credentials.getStatefulEncryptor().update(in);
+        }
 
-            // ntlm_auth session_security:
-//        csk = self._client_sealing_key
-//        ssk = self._server_sealing_key
-//        if outgoing:
-//        self.outgoing_handle = ARC4(csk if self._source == 'client' else ssk)
-//        else:
-//        self.incoming_handle = ARC4(ssk if self._source == 'client' else csk)
-
-            RC4Engine engine = new RC4Engine();
-            engine.init(true, new KeyParameter(credentials.getClientKey()));
-
-            ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
-            CipherOutputStream cos = new CipherOutputStream(outBytes, engine);
-            cos.write(in);
-
-            return outBytes.toByteArray();
+        private byte[] seal(byte[] in) throws IOException {
+            return credentials.getStatefulEncryptor().update(in);
         }
 
         private void writeNtlmEncrypted(byte[] messageBody, ByteArrayOutputStream encrypted) throws IOException {
 
+            // ./pywinrm/winrm/encryption.py
+            // ./ntlm_auth/session_security.py
+
+            long seqNum = credentials.getSequenceNumberOutgoing().incrementAndGet();
+            ByteArrayOutputStream signature = new ByteArrayOutputStream();
+            ByteArrayOutputStream sealed = new ByteArrayOutputStream();
+
+            // seal first, even though appended afterwards, because encryptor is stateful
+            sealed.write(seal(messageBody));
+
 //    sealed_message, signature = self.session.auth.session_security.wrap(message)
 //            return signature_length + signature + sealed_message
 
+//            seq_num = struct.pack("<I", seq_num)
+//            if negotiate_flags & \
+//            NegotiateFlags.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
+//            checksum_hmac = hmac.new(signing_key, seq_num + message,
+//                    digestmod=hashlib.md5)
+//            if negotiate_flags & NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
+//            checksum = handle.update(checksum_hmac.digest()[:8])
+//        else:
+//            checksum = checksum_hmac.digest()[:8]
+//
+//            signature = _NtlmMessageSignature2(checksum, seq_num)
+//
+//    else:
+//            message_crc = binascii.crc32(message) % (1 << 32)
+//            checksum = struct.pack("<I", message_crc)
+//            random_pad = handle.update(struct.pack("<I", 0))
+//            checksum = handle.update(checksum)
+//            seq_num = handle.update(seq_num)
+//            random_pad = struct.pack("<I", 0)
+//
+//            signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
+
+
+            if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY)) {
+
+//            checksum_hmac = hmac.new(signing_key, seq_num + message,
+//                    digestmod=hashlib.md5)
+//            if negotiate_flags & NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
+//            checksum = handle.update(checksum_hmac.digest()[:8])
+//        else:
+//            checksum = checksum_hmac.digest()[:8]
+
+                // also see HMACMD5 in NTLMEngineIpml
+                byte[] checksum = WinrmEncryptionUtils.hmacMd5(credentials.getClientSigningKey(), concat(getLittleEndianUnsignedInt(seqNum), messageBody));
+                checksum = Arrays.copyOfRange(checksum, 0, 8);
+
+                if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH)) {
+                    checksum = sign(checksum);
+                }
+//
+//            signature = _NtlmMessageSignature2(checksum, seq_num)
+//                self.version = b"\x01\x00\x00\x00"
+//                signature = self.version
+//                signature += self.checksum
+//                signature += self.seq_num
+
+                // version
+                signature.write(new byte[]{1, 0, 0, 0});
+                // checksum
+                signature.write(checksum);
+                // seq num
+                signature.write(getLittleEndianUnsignedInt(seqNum));
+
+
+            } else {
+
+//            message_crc = binascii.crc32(message) % (1 << 32)
+//            checksum = struct.pack("<I", message_crc)
+//            random_pad = handle.update(struct.pack("<I", 0))
+//            checksum = handle.update(checksum)
+//            seq_num = handle.update(seq_num)
+//            random_pad = struct.pack("<I", 0)
+//
+//            signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
+
 //        message_crc = binascii.crc32(message) % (1 << 32)
-            CRC32 crc = new CRC32();
-            crc.update(messageBody);
-            long messageCrc = crc.getValue();
-
-            long seqNum = -1;
-
-            ByteArrayOutputStream signature = new ByteArrayOutputStream();
-            ;
-//        random_pad = handle.update(struct.pack("<I", 0))
-            signature.write(new byte[]{1, 0, 0, 0});
-            // version
-            signature.write(getLittleEndianUnsignedInt(0));
-//        checksum = handle.update(checksum)
-            signature.write(encrypt(getLittleEndianUnsignedInt(messageCrc)));
-//        seq_num = handle.update(seq_num)
-            signature.write(encrypt(getLittleEndianUnsignedInt(seqNum)));
+                CRC32 crc = new CRC32();
+                crc.update(messageBody);
+                long messageCrc = crc.getValue();
 
 //        signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
+//            self.version = b"\x01\x00\x00\x00"
+//            signature = self.version
+//            signature += self.random_pad
+//            signature += self.checksum
+//            signature += self.seq_num
+
+                // version
+                signature.write(new byte[]{1, 0, 0, 0});
+                // random pad
+                signature.write(sign(getLittleEndianUnsignedInt(0)));
+                // checksum
+                signature.write(sign(getLittleEndianUnsignedInt(messageCrc)));
+                // seq num
+                signature.write(sign(getLittleEndianUnsignedInt(seqNum)));
+            }
+
             encrypted.write(getLittleEndianUnsignedInt(signature.size()));
             encrypted.write(signature.toByteArray());
-
-            encrypted.write(encrypt(messageBody));
+            encrypted.write(sealed.toByteArray());
         }
-    }
-
-    private static byte[] getLittleEndianUnsignedInt(long x) {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(4);
-        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        byteBuffer.putInt( (int) (x & 0xFFFFFFFF) );
-        return byteBuffer.array();
     }
 
 }

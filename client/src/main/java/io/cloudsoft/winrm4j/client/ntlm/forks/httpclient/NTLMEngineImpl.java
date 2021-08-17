@@ -3,7 +3,9 @@
 // - package name, this header, imports
 // - fix minor errors/typos
 // - allow class to be extended and flags to be customized (increase many things' visibility to protected and make class non-final)
-// - expose Type3 message (package-private) so keys can be gathered
+// - expose Type3 message (public) so keys can be gathered
+// - expose encryption methods
+// - make flags injectable to Type1 message
 
 /*
  * ====================================================================
@@ -140,8 +142,6 @@ public class NTLMEngineImpl implements NTLMEngine {
         return target;
     }
 
-    private static final String TYPE_1_MESSAGE = new Type1Message().getResponse();
-
     protected NTLMEngineImpl() {
     }
 
@@ -156,10 +156,14 @@ public class NTLMEngineImpl implements NTLMEngine {
      *            The domain to authenticate with.
      * @return String the message to add to the HTTP request header.
      */
-    static String getType1Message(final String host, final String domain) {
-        // For compatibility reason do not include domain and host in type 1 message
-        //return new Type1Message(domain, host).getResponse();
-        return TYPE_1_MESSAGE;
+    static String getType1Message(final String host, final String domain, Integer flags, boolean includeHostAndDomain) throws NTLMEngineException {
+        // For compatibility reason do not uusally include domain and host in type 1 message
+//        return new Type1Message(domain, host).getResponse();
+
+        return new Type1Message(
+                includeHostAndDomain ? host : null,
+                includeHostAndDomain ? domain : null,
+                flags).getResponse();
     }
 
     /**
@@ -583,7 +587,7 @@ public class NTLMEngineImpl implements NTLMEngine {
     }
 
     /** Calculates HMAC-MD5 */
-    static byte[] hmacMD5(final byte[] value, final byte[] key)
+    public static byte[] hmacMD5(final byte[] value, final byte[] key)
         throws NTLMEngineException {
         final HMACMD5 hmacMD5 = new HMACMD5(key);
         hmacMD5.update(value);
@@ -591,7 +595,7 @@ public class NTLMEngineImpl implements NTLMEngine {
     }
 
     /** Calculates RC4 */
-    static byte[] RC4(final byte[] value, final byte[] key)
+    public static byte[] RC4(final byte[] value, final byte[] key)
         throws NTLMEngineException {
         try {
             final Cipher rc4 = Cipher.getInstance("RC4");
@@ -1289,7 +1293,7 @@ public class NTLMEngineImpl implements NTLMEngine {
             flags = getDefaultFlags();
         }
 
-        private int getDefaultFlags() {
+        static int getDefaultFlags() {
             return
                 //FLAG_WORKSTATION_PRESENT |
                 //FLAG_DOMAIN_PRESENT |
@@ -1455,7 +1459,7 @@ public class NTLMEngineImpl implements NTLMEngine {
     }
 
     /** Type 3 message assembly class */
-    protected static class Type3Message extends NTLMMessage {
+    public static class Type3Message extends NTLMMessage {
         // For mic computation
         protected final byte[] type1Message;
         protected final byte[] type2Message;
@@ -1633,6 +1637,10 @@ public class NTLMEngineImpl implements NTLMEngine {
             domainBytes = unqualifiedDomain != null ? unqualifiedDomain
                 .toUpperCase(Locale.ROOT).getBytes(charset) : null;
             userBytes = user.getBytes(charset);
+        }
+
+        public int getType2Flags() {
+            return type2Flags;
         }
 
         public byte[] getEncryptedRandomSessionKey() {
@@ -2096,7 +2104,11 @@ public class NTLMEngineImpl implements NTLMEngine {
     public String generateType1Msg(
             final String domain,
             final String workstation) throws NTLMEngineException {
-        return getType1Message(workstation, domain);
+        return getType1Message(workstation, domain, getDefaultFlags(), false);
+    }
+
+    protected Integer getDefaultFlags() {
+        return Type1Message.getDefaultFlags();
     }
 
     @Override

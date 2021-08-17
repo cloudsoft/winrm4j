@@ -1,56 +1,34 @@
 package io.cloudsoft.winrm4j.client.encryption;
 
-import org.apache.http.auth.NTCredentials;
+import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.StatefulEncryption;
+import java.util.concurrent.atomic.AtomicLong;
 
 public interface CredentialsWithEncryption {
 
     boolean isAuthenticated();
     void setIsAuthenticated(boolean isAuthenticated);
 
-    void setClientKey(byte[] key);
-    void setServerKey(byte[] key);
+    void setClientSigningKey(byte[] key);
+    void setServerSigningKey(byte[] key);
 
-    byte[] getClientKey();
-    byte[] getServerKey();
+    byte[] getClientSigningKey();
+    byte[] getServerSigningKey();
 
-    public static class NTCredentialsWithEncryption extends NTCredentials implements CredentialsWithEncryption {
+    void setClientSealingKey(byte[] key);
+    void setServerSealingKey(byte[] key);
 
-        boolean isAuthenticated = false;
-        byte[] clientKey, serverKey;
+    byte[] getClientSealingKey();
+    byte[] getServerSealingKey();
 
-        public NTCredentialsWithEncryption(String userName, String password, String workstation, String domain) {
-            super(userName, password, workstation, domain);
-        }
-
-        @Override
-        public boolean isAuthenticated() {
-            return isAuthenticated;
-        }
-
-        @Override
-        public void setIsAuthenticated(boolean isAuthenticated) {
-            this.isAuthenticated = isAuthenticated;
-        }
-
-        @Override
-        public void setClientKey(byte[] clientKey) {
-            this.clientKey = clientKey;
-        }
-
-        @Override
-        public void setServerKey(byte[] serverKey) {
-            this.serverKey = serverKey;
-        }
-
-        @Override
-        public byte[] getClientKey() {
-            return clientKey;
-        }
-
-        @Override
-        public byte[] getServerKey() {
-            return serverKey;
-        }
+    void setNegotiateFlags(long negotiateFlags);
+    long getNegotiateFlags();
+    default boolean hasNegotiateFlag(long flag) {
+        return (getNegotiateFlags() & flag) == flag;
     }
+
+    AtomicLong getSequenceNumberIncoming();
+    AtomicLong getSequenceNumberOutgoing();
+
+    StatefulEncryption getStatefulEncryptor();
 
 }

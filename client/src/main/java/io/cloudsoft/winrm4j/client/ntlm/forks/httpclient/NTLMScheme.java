@@ -183,18 +183,14 @@ public class NTLMScheme extends AuthSchemeBase {
             final HttpRequest request,
             final HttpContext context) throws AuthenticationException {
         Header result = authenticate(credentials, request);
-
-        if (credentials instanceof CredentialsWithEncryption) {
-            ((CredentialsWithEncryption)credentials).setIsAuthenticated(true);
-
-            if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
-                // TODO which is client, server?
-                ((CredentialsWithEncryption)credentials).setClientKey( signAndSealData.getExportedSessionKey() );
-                ((CredentialsWithEncryption)credentials).setServerKey( signAndSealData.getExportedSessionKey() );
-            }
-        }
-
+        handleSignAndSealData(credentials, request, context, signAndSealData);
         return result;
+    }
+
+    protected void handleSignAndSealData(final Credentials credentials,
+                                       final HttpRequest request,
+                                       final HttpContext context,
+                                       final Type3Message signAndSealData) {
     }
 
 }

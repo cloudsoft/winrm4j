@@ -1,7 +1,6 @@
 package io.cloudsoft.winrm4j.client;
 
-import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
-import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption.NTCredentialsWithEncryption;
+import io.cloudsoft.winrm4j.client.ntlm.NTCredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.spnego.WsmanViaSpnegoSchemeFactory;
 import java.io.Writer;
 import java.lang.reflect.Proxy;
@@ -50,7 +49,6 @@ import org.apache.cxf.ws.policy.PolicyConstants;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.KerberosCredentials;
-import org.apache.http.auth.NTCredentials;
 import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
