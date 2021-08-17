@@ -88,4 +88,9 @@ public class ByteArrayUtils {
         return result;
     }
 
+    public static long readLittleEndianUnsignedInt(byte[] input, int offset) {
+        ByteBuffer byteBuffer = ByteBuffer.wrap(input);
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        return Integer.toUnsignedLong(byteBuffer.getInt(offset));
+    }
 }

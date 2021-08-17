@@ -1,5 +1,6 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.encryption.DecryptAndVerifyInInterceptor;
 import io.cloudsoft.winrm4j.client.encryption.SignAndEncryptOutInterceptor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -112,7 +113,10 @@ public class WinRmFactory {
             List<Interceptor<? extends Message>> outInterceptors = new ArrayList<>();
             List<Interceptor<? extends Message>> inInterceptors = new ArrayList<>();
 
-            outInterceptors.add(new SignAndEncryptOutInterceptor(builder.payloadEncryptionMode()));
+            if (builder.payloadEncryptionMode().isPermitted()) {
+                outInterceptors.add(new SignAndEncryptOutInterceptor(builder.payloadEncryptionMode()));
+                inInterceptors.add(new DecryptAndVerifyInInterceptor(builder.payloadEncryptionMode()));
+            }
 
             factory.setInInterceptors(inInterceptors);
             factory.setOutInterceptors(outInterceptors);

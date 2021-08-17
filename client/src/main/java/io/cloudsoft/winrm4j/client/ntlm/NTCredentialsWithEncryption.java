@@ -2,7 +2,7 @@ package io.cloudsoft.winrm4j.client.ntlm;
 
 import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils;
-import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.StatefulEncryption;
+import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.CryptoHandler;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.http.auth.NTCredentials;
 
@@ -87,11 +87,18 @@ public class NTCredentialsWithEncryption extends NTCredentials implements Creden
         return sequenceNumberOutgoing;
     }
 
-    StatefulEncryption encryptor = null;
+    CryptoHandler encryptor = null;
     @Override
-    public StatefulEncryption getStatefulEncryptor() {
+    public CryptoHandler getStatefulEncryptor() {
         if (encryptor==null) encryptor = WinrmEncryptionUtils.encryptorArc4(getClientSealingKey());
         return encryptor;
+    }
+
+    CryptoHandler decryptor = null;
+    @Override
+    public CryptoHandler getStatefulDecryptor() {
+        if (decryptor==null) decryptor = WinrmEncryptionUtils.encryptorArc4(getServerSealingKey());
+        return decryptor;
     }
 
 }

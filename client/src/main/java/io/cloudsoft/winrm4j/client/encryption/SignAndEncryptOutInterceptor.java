@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.function.Function;
 import java.util.zip.CRC32;
 import org.apache.cxf.interceptor.StaxOutInterceptor;
 import org.apache.cxf.io.WriteOnCloseOutputStream;
@@ -107,6 +108,8 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
                 out.write(ENCRYPTED_BOUNDARY_CR.getBytes());
                 out.write("\tContent-Type: application/octet-stream\r\n".getBytes());
 
+                // for credssh chunking might be needed, but not for ntlm
+
                 writeNtlmEncrypted(messageBody, out);
 
                 out.write(ENCRYPTED_BOUNDARY_END.getBytes());
@@ -120,11 +123,7 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
             }
         }
 
-        private byte[] sign(byte[] in) throws IOException {
-            return credentials.getStatefulEncryptor().update(in);
-        }
-
-        private byte[] seal(byte[] in) throws IOException {
+        private byte[] seal(byte[] in) {
             return credentials.getStatefulEncryptor().update(in);
         }
 
@@ -140,7 +139,21 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
             // seal first, even though appended afterwards, because encryptor is stateful
             sealed.write(seal(messageBody));
 
-//    sealed_message, signature = self.session.auth.session_security.wrap(message)
+            calculateSignature(messageBody, seqNum, signature, credentials, CredentialsWithEncryption::getClientSigningKey, this::seal);
+
+            encrypted.write(getLittleEndianUnsignedInt(signature.size()));
+            encrypted.write(signature.toByteArray());
+            encrypted.write(sealed.toByteArray());
+        }
+
+    }
+
+    static void calculateSignature(byte[] messageBody, long seqNum,
+                                   ByteArrayOutputStream signature,
+                                   CredentialsWithEncryption credentials,
+                                   Function<CredentialsWithEncryption,byte[]> signingKeyFunction,
+                                   Function<byte[],byte[]> sealer) throws IOException {
+        //    sealed_message, signature = self.session.auth.session_security.wrap(message)
 //            return signature_length + signature + sealed_message
 
 //            seq_num = struct.pack("<I", seq_num)
@@ -166,7 +179,7 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 //            signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
 
 
-            if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY)) {
+        if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY)) {
 
 //            checksum_hmac = hmac.new(signing_key, seq_num + message,
 //                    digestmod=hashlib.md5)
@@ -175,13 +188,13 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 //        else:
 //            checksum = checksum_hmac.digest()[:8]
 
-                // also see HMACMD5 in NTLMEngineIpml
-                byte[] checksum = WinrmEncryptionUtils.hmacMd5(credentials.getClientSigningKey(), concat(getLittleEndianUnsignedInt(seqNum), messageBody));
-                checksum = Arrays.copyOfRange(checksum, 0, 8);
+            // also see HMACMD5 in NTLMEngineIpml
+            byte[] checksum = WinrmEncryptionUtils.hmacMd5(signingKeyFunction.apply(credentials), concat(getLittleEndianUnsignedInt(seqNum), messageBody));
+            checksum = Arrays.copyOfRange(checksum, 0, 8);
 
-                if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH)) {
-                    checksum = sign(checksum);
-                }
+            if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH)) {
+                checksum = sealer.apply(checksum);
+            }
 //
 //            signature = _NtlmMessageSignature2(checksum, seq_num)
 //                self.version = b"\x01\x00\x00\x00"
@@ -189,15 +202,15 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 //                signature += self.checksum
 //                signature += self.seq_num
 
-                // version
-                signature.write(new byte[]{1, 0, 0, 0});
-                // checksum
-                signature.write(checksum);
-                // seq num
-                signature.write(getLittleEndianUnsignedInt(seqNum));
+            // version
+            signature.write(new byte[]{1, 0, 0, 0});
+            // checksum
+            signature.write(checksum);
+            // seq num
+            signature.write(getLittleEndianUnsignedInt(seqNum));
 
 
-            } else {
+        } else {
 
 //            message_crc = binascii.crc32(message) % (1 << 32)
 //            checksum = struct.pack("<I", message_crc)
@@ -209,9 +222,9 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 //            signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
 
 //        message_crc = binascii.crc32(message) % (1 << 32)
-                CRC32 crc = new CRC32();
-                crc.update(messageBody);
-                long messageCrc = crc.getValue();
+            CRC32 crc = new CRC32();
+            crc.update(messageBody);
+            long messageCrc = crc.getValue();
 
 //        signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
 //            self.version = b"\x01\x00\x00\x00"
@@ -220,20 +233,14 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 //            signature += self.checksum
 //            signature += self.seq_num
 
-                // version
-                signature.write(new byte[]{1, 0, 0, 0});
-                // random pad
-                signature.write(sign(getLittleEndianUnsignedInt(0)));
-                // checksum
-                signature.write(sign(getLittleEndianUnsignedInt(messageCrc)));
-                // seq num
-                signature.write(sign(getLittleEndianUnsignedInt(seqNum)));
-            }
-
-            encrypted.write(getLittleEndianUnsignedInt(signature.size()));
-            encrypted.write(signature.toByteArray());
-            encrypted.write(sealed.toByteArray());
+            // version
+            signature.write(new byte[]{1, 0, 0, 0});
+            // random pad
+            signature.write(sealer.apply(getLittleEndianUnsignedInt(0)));
+            // checksum
+            signature.write(sealer.apply(getLittleEndianUnsignedInt(messageCrc)));
+            // seq num
+            signature.write(sealer.apply(getLittleEndianUnsignedInt(seqNum)));
         }
     }
-
 }

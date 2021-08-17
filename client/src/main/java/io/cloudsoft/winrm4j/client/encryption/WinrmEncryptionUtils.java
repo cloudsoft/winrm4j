@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.function.Function;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.crypto.engines.RC4Engine;
@@ -24,31 +23,20 @@ public class WinrmEncryptionUtils {
         }
     }
 
-    // don't use this -- we need the pseudoRNG to be stateful
-//    public static byte[] encryptArc4(byte[] in, byte[] key) throws IOException {
-//        // ntlm_auth session_security:
-////        csk = self._client_sealing_key
-////        ssk = self._server_sealing_key
-////        if outgoing:
-////        self.outgoing_handle = ARC4(csk if self._source == 'client' else ssk)
-////        else:
-////        self.incoming_handle = ARC4(ssk if self._source == 'client' else csk)
-//
-//        RC4Engine engine = new RC4Engine();
-//        engine.init(true, new KeyParameter(key));
-//
-//        ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
-//        CipherOutputStream cos = new CipherOutputStream(outBytes, engine);
-//        cos.write(in);
-//
-//        return outBytes.toByteArray();
-//    }
+    public static CryptoHandler encryptorArc4(byte[] key) {
+        return cryptorArc4(true, key);
+    }
 
-    public static StatefulEncryption encryptorArc4(byte[] key) {
+    public static CryptoHandler decryptorArc4(byte[] key) {
+        return cryptorArc4(false, key);
+    }
+
+    public static CryptoHandler cryptorArc4(boolean forEncryption, byte[] key) {
+        // engine needs to be stateful
         RC4Engine engine = new RC4Engine();
-        engine.init(true, new KeyParameter(key));
+        engine.init(forEncryption, new KeyParameter(key));
 
-        return new StatefulEncryption() {
+        return new CryptoHandler() {
             @Override
             public byte[] update(byte[] input) {
                 try {
@@ -75,7 +63,7 @@ public class WinrmEncryptionUtils {
         }
     }
 
-    public interface StatefulEncryption {
+    public interface CryptoHandler {
         byte[] update(byte[] input);
     }
 

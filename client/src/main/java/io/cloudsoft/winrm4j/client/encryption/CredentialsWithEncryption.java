@@ -1,6 +1,6 @@
 package io.cloudsoft.winrm4j.client.encryption;
 
-import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.StatefulEncryption;
+import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.CryptoHandler;
 import java.util.concurrent.atomic.AtomicLong;
 
 public interface CredentialsWithEncryption {
@@ -29,6 +29,6 @@ public interface CredentialsWithEncryption {
     AtomicLong getSequenceNumberIncoming();
     AtomicLong getSequenceNumberOutgoing();
 
-    StatefulEncryption getStatefulEncryptor();
-
+    CryptoHandler getStatefulEncryptor();
+    CryptoHandler getStatefulDecryptor();
 }
