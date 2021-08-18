@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Predicate;
 
+import java.util.function.Supplier;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -289,7 +290,7 @@ public class WinRmClient implements AutoCloseable {
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint);
         boolean advancedHttpConfigNeeded = false;
 
-        Credentials creds = new NTCredentialsWithEncryption(username, password, null, domain);
+        Supplier<Credentials> creds = () -> new NTCredentialsWithEncryption(username, password, null, domain);
 
         switch (authenticationScheme) {
             case AuthSchemes.BASIC:
@@ -324,9 +325,10 @@ public class WinRmClient implements AutoCloseable {
                     throw new IllegalStateException("Encryption is required, which is not implemented for Kerberos");
                     // might not be too hard to do -- get the sealing keys from kerberos by extending CredentialsWithEncryption
                 }
-                creds = builder.requestNewKerberosTicket
-                            ? getKerberosCreds(username, password)
-                            : creds;
+                if (builder.requestNewKerberosTicket) {
+                    KerberosCredentials newCreds = getKerberosCreds(username, password);
+                    creds = () -> newCreds;
+                }
 
                 authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
                         .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())
@@ -348,7 +350,7 @@ public class WinRmClient implements AutoCloseable {
                         "options are "+Arrays.asList(AuthSchemes.BASIC, AuthSchemes.NTLM, AuthSchemes.SPNEGO, AuthSchemes.KERBEROS));
         }
         if (advancedHttpConfigNeeded) {
-            bp.getRequestContext().put(Credentials.class.getName(), creds);
+            bp.getRequestContext().put(Credentials.class.getName(), creds.get());
             bp.getRequestContext().put("http.autoredirect", true);
 
             AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
