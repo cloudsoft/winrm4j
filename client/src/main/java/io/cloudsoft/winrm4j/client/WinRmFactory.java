@@ -1,13 +1,19 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.encryption.DecryptAndVerifyInInterceptor;
+import io.cloudsoft.winrm4j.client.encryption.SignAndEncryptOutInterceptor;
 import java.lang.reflect.Field;
-
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import javax.xml.ws.spi.Provider;
 import javax.xml.ws.spi.ServiceDelegate;
-
 import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
+import org.apache.cxf.interceptor.Interceptor;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
+import org.apache.cxf.message.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,10 +21,14 @@ public class WinRmFactory {
     private static final Logger LOG = LoggerFactory.getLogger(WinRmClient.class.getName());
 
     public static WinRm newInstance(Bus bus) {
+        return newInstance(bus, null);
+    }
+
+    public static WinRm newInstance(Bus bus, WinRmClientBuilder builder) {
         Bus prevBus = BusFactory.getAndSetThreadDefaultBus(bus);
         try {
             // The default thread bus is set on the ClientImpl and used for further requests
-            return createService(bus);
+            return createService(bus, builder);
         } finally {
             if (BusFactory.getThreadDefaultBus(false) != prevBus) {
                 BusFactory.setThreadDefaultBus(prevBus);
@@ -26,14 +36,17 @@ public class WinRmFactory {
         }
     }
 
-    private static WinRm createService(Bus bus) {
+    private static WinRm createService(Bus bus, WinRmClientBuilder builder) {
         RuntimeException lastException = null;
 
         try {
-            return doCreateServiceWithBean(bus);
+            return doCreateServiceWithBean(bus, builder);
         } catch (RuntimeException e) {
             LOG.warn("Error creating WinRm service with mbean strategy (trying other strategies): "+e, e);
             lastException = e;
+            if (builder.payloadEncryptionMode().isRequired()) {
+                throw new IllegalStateException("MBean strategy must work to enable encryption, and failed with: "+e, e);
+            }
         }
 
         /*
@@ -88,12 +101,28 @@ public class WinRmFactory {
     
     // approach using JaxWsProxyFactoryBean
     
-    private static WinRm doCreateServiceWithBean(Bus bus) {
+    private static WinRm doCreateServiceWithBean(Bus bus, WinRmClientBuilder builder) {
         JaxWsProxyFactoryBean factory = new JaxWsProxyFactoryBean();
         factory.getClientFactoryBean().getServiceFactory().setWsdlURL(WinRmService.WSDL_LOCATION);
         factory.setServiceName(WinRmService.SERVICE);
         factory.setEndpointName(WinRmService.WinRmPort);
         factory.setBus(bus);
+
+        if (builder!=null) {
+            Map<String, Object> properties = new LinkedHashMap<String, Object>();
+            List<Interceptor<? extends Message>> outInterceptors = new ArrayList<>();
+            List<Interceptor<? extends Message>> inInterceptors = new ArrayList<>();
+
+            if (builder.payloadEncryptionMode().isPermitted()) {
+                outInterceptors.add(new SignAndEncryptOutInterceptor(builder.payloadEncryptionMode()));
+                inInterceptors.add(new DecryptAndVerifyInInterceptor(builder.payloadEncryptionMode()));
+            }
+
+            factory.setInInterceptors(inInterceptors);
+            factory.setOutInterceptors(outInterceptors);
+            factory.setProperties(properties);
+        }
+
         return factory.create(WinRm.class);
     }
 
