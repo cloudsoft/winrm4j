@@ -1,10 +1,13 @@
 package io.cloudsoft.winrm4j.client.ntlm;
 
+import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
 import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
+import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys.NegotiateFlags;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngine;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMScheme;
+import java.util.function.Function;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
 import org.apache.http.auth.AuthenticationException;
@@ -20,23 +23,36 @@ public class NtlmMasqAsSpnegoScheme extends NTLMScheme {
     }
 
     public NtlmMasqAsSpnegoScheme() {
-        this(newDefaultNtlmEngine());
+        this(PayloadEncryptionMode.OPTIONAL);
     }
 
-    static NTLMEngine newDefaultNtlmEngine() {
-        return new NTLMEngineImpl() {
-            @Override
-            protected Integer getDefaultFlags() {
-                return (super.getDefaultFlags()
-                        | FLAG_REQUEST_SIGN | FLAG_REQUEST_SEAL
-                        | FLAG_REQUEST_EXPLICIT_KEY_EXCH
+    public NtlmMasqAsSpnegoScheme(PayloadEncryptionMode payloadEncryptionMode) {
+        this(newDefaultNtlmEngine(
+                !payloadEncryptionMode.isPermitted()
+                    ? null
+                    : flags -> (flags
+                        | NegotiateFlags.NTLMSSP_NEGOTIATE_SIGN
+                        | NegotiateFlags.NTLMSSP_NEGOTIATE_SEAL
+                        | NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH
+
 //                        // python ntlm-auth/ntlm.py adds this also (but seems to work without this)
 //                        | NegotiateFlags.NTLMSSP_NEGOTIATE_TARGET_INFO
-                        )
+        )
 //                        // super adds these which python seems not to (not sure, and works without removing them)
 //                        & ~FLAG_REQUEST_NTLMv1
 //                        & ~FLAG_REQUEST_NTLM2_SESSION
-                        ;
+        ));
+    }
+
+    static NTLMEngine newDefaultNtlmEngine(Function<Long,Long> flagModifier) {
+        return new NTLMEngineImpl() {
+            @Override
+            protected Integer getDefaultFlags() {
+                Long flags = (long) super.getDefaultFlags();
+                if (flagModifier!=null) {
+                    flags = flagModifier.apply(flags);
+                }
+                return flags.intValue();
             }
         };
     }

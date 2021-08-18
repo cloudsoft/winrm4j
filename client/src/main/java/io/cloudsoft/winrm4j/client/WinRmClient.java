@@ -304,7 +304,7 @@ public class WinRmClient implements AutoCloseable {
             case AuthSchemes.NTLM:
                 Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
                         .register(AuthSchemes.NTLM, new NTLMSchemeFactory())
-                        .register(AuthSchemes.SPNEGO, new NtlmMasqAsSpnegoSchemeFactory())
+                        .register(AuthSchemes.SPNEGO, new NtlmMasqAsSpnegoSchemeFactory(builder.payloadEncryptionMode()))
                         .build();
                 bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
 
@@ -322,7 +322,7 @@ public class WinRmClient implements AutoCloseable {
                  *    in order to be used by the HttpAuthenticator to generate the Spnego token.
                  */
                 if (builder.payloadEncryptionMode().isRequired()) {
-                    throw new IllegalStateException("Encryption is required, which is not implemented for Kerberos");
+                    throw new IllegalStateException("Encryption is required, but not implemented here for Kerberos");
                     // might not be too hard to do -- get the sealing keys from kerberos by extending CredentialsWithEncryption
                 }
                 if (builder.requestNewKerberosTicket) {
