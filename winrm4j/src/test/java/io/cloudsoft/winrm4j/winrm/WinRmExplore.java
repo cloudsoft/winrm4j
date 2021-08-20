@@ -15,20 +15,21 @@ public class WinRmExplore {
          * If running from the IDE, make sure you do a maven build before running,
          * to get wsdl/WinRmService.wsdl installed
          */
+
         WinRmClientContext context = WinRmClientContext.newInstance();
 
         WinRmTool tool = WinRmTool.Builder.builder(
                 SERVER, USERNAME, PASSWORD)
-                .authenticationScheme(
+//                .authenticationScheme(
 //                        AuthSchemes.BASIC
-                        AuthSchemes.NTLM
-//                        AuthSchemes.SPNEGO
-//                        AuthSchemes.KERBEROS
-                        )
+////                        AuthSchemes.NTLM
+////                        AuthSchemes.SPNEGO
+////                        AuthSchemes.KERBEROS
+//                        )
 
-//                .port(5985)
+                .port(5985)
                 .useHttps(false)
-                .payloadEncryptionMode(PayloadEncryptionMode.OPTIONAL)
+//                .payloadEncryptionMode(PayloadEncryptionMode.OPTIONAL)
 
 //                .port(5986)
 //                .useHttps(true)
@@ -41,7 +42,7 @@ public class WinRmExplore {
         WinRmToolResponse response = tool.executePs("ls");
         System.out.println("OUT: "+response.getStdOut());
 
-        context.shutdown();
+        if (context!=null) context.shutdown();
     }
 
 }

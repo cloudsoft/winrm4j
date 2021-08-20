@@ -497,7 +497,13 @@ public class WinRmClient implements AutoCloseable {
         optCodepage.setValue("437");
         optSetCreate.getOption().add(optCodepage);
 
-        ResourceCreated resourceCreated = winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
+        ResourceCreated resourceCreated = null;
+        try {
+            resourceCreated = winrm.create(shell, RESOURCE_URI, MAX_ENVELOPER_SIZE, operationTimeout, locale, optSetCreate);
+        } catch (RuntimeException e) {
+            RetryingProxyHandler.checkForRootErrorAuthorizationLoopAndPropagateAnnotated(e);
+            throw e;
+        }
         String shellId = getShellId(resourceCreated);
 
         return new ShellCommand(winrm, shellId, operationTimeout, retryReceiveAfterOperationTimeout, locale);
