@@ -48,11 +48,7 @@ class RetryingProxyHandler implements InvocationHandler {
                 return method.invoke(winrm, args);
             } catch (InvocationTargetException targetException) {
                 Throwable e = targetException.getTargetException();
-                Throwable root = e;
-                while (root.getCause()!=null && root.getCause()!=e) root = root.getCause();
-                if (root.toString().contains("Authorization loop detected on Conduit")) {
-                    throw new IllegalStateException("Incompatible authentication schemes", e);
-                }
+                checkForRootErrorAuthorizationLoopAndPropagateAnnotated(e);
                 if (e instanceof SOAPFaultException) {
                     throw (SOAPFaultException) e;
                 }
@@ -85,6 +81,31 @@ class RetryingProxyHandler implements InvocationHandler {
         
         LOG.debug("failed task \"" + method.getName() + "\" after " + attempt + " attempt(s), rethrowing first exception");
         throw new RuntimeException("failed task \"" + method.getName() + "\" after " + attempt + " attempt(s)", firstException);
+    }
+
+    public static void checkForRootErrorAuthorizationLoopAndPropagateAnnotated(Throwable e0) {
+        Throwable e = e0;
+
+        while (e!=null) {
+            String es = e.toString();
+            if (es.contains("ncompatible authentication schemes")) {
+                // don't loop over ourselves
+                if (e0 instanceof RuntimeException) throw (RuntimeException)e0;
+                throw new RuntimeException(e0);
+            }
+
+            if (e.toString().contains("Authorization loop detected on Conduit")) {
+                throw new IllegalStateException(
+                        "Invalid credentials or incompatible authentication schemes",
+                        e0);
+            }
+
+            if (e.getCause()==null || e.getCause()==e) {
+                // some exceptions appear to be caused by themselves :(
+                return;
+            }
+            e = e.getCause();
+        }
     }
 
     /**
