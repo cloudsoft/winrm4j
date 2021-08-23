@@ -1,14 +1,11 @@
 package io.cloudsoft.winrm4j.client.encryption;
 
-import java.io.ByteArrayOutputStream;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.bouncycastle.crypto.engines.RC4Engine;
-import org.bouncycastle.crypto.io.CipherOutputStream;
-import org.bouncycastle.crypto.params.KeyParameter;
 
 public class WinrmEncryptionUtils {
 
@@ -33,23 +30,44 @@ public class WinrmEncryptionUtils {
 
     public static CryptoHandler cryptorArc4(boolean forEncryption, byte[] key) {
         // engine needs to be stateful
-        RC4Engine engine = new RC4Engine();
-        engine.init(forEncryption, new KeyParameter(key));
+        try {
+            final Cipher rc4 = Cipher.getInstance("RC4");
+            rc4.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "RC4"));
 
-        return new CryptoHandler() {
-            @Override
-            public byte[] update(byte[] input) {
-                try {
-                    ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
-                    CipherOutputStream cos = new CipherOutputStream(outBytes, engine);
-                    cos.write(input);
+            return new CryptoHandler() {
+                @Override
+                public byte[] update(byte[] input) {
+                    try {
+                        return rc4.update(input);
 
-                    return outBytes.toByteArray();
-                } catch (Exception e) {
-                    throw new IllegalStateException(e);
+                    } catch (Exception e) {
+                        throw new IllegalStateException(e);
+                    }
                 }
-            }
-        };
+            };
+
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+
+            // using bouncycastle - but brings in unnecessary deps
+//        RC4Engine engine = new RC4Engine();
+//        engine.init(forEncryption, new KeyParameter(key));
+//
+//        return new CryptoHandler() {
+//            @Override
+//            public byte[] update(byte[] input) {
+//                try {
+//                    ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+//                    CipherOutputStream cos = new CipherOutputStream(outBytes, engine);
+//                    cos.write(input);
+//
+//                    return outBytes.toByteArray();
+//                } catch (Exception e) {
+//                    throw new IllegalStateException(e);
+//                }
+//            }
+//        };
     }
 
     public static byte[] hmacMd5(byte[] key, byte[] body) {

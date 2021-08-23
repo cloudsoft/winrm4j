@@ -1,19 +1,15 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.retry.RetryDecision;
+import io.cloudsoft.winrm4j.client.retry.RetryPolicy;
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-
 import javax.xml.ws.WebServiceException;
 import javax.xml.ws.soap.SOAPFaultException;
-
-import org.apache.cxf.jaxrs.utils.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.cloudsoft.winrm4j.client.retry.RetryDecision;
-import io.cloudsoft.winrm4j.client.retry.RetryPolicy;
 
 class RetryingProxyHandler implements InvocationHandler {
     private static final Logger LOG = LoggerFactory.getLogger(RetryingProxyHandler.class);
