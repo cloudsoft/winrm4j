@@ -121,10 +121,12 @@ public class ShellCommand implements AutoCloseable {
                 getStreams(receiveResponse, out, err);
 
                 CommandStateType state = receiveResponse.getCommandState();
+                // https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv/bd5802af-51ad-4f1b-9a5c-7aa499d5eee9
+                // either Done, Running, or Pending
                 if (COMMAND_STATE_DONE.equals(state.getState())) {
                     return state.getExitCode().intValue();
                 } else {
-                    LOG.debug("{} is not done. Response it received: {}", this, receiveResponse);
+                    LOG.debug("{} is not done. Response it received: {} / {}", this, state.getState(), receiveResponse);
                 }
             } catch (SOAPFaultException soapFault) {
                 /**
