@@ -172,7 +172,7 @@ public class SignAndEncryptNtlmTest {
         Assert.fail(errmsg+"\n--\n"+ByteArrayUtils.formatHexDump(b1)+"--\n"+ByteArrayUtils.formatHexDump(b2)+"--\n");
     }
 
-    private byte[] wrap(PayloadEncryptionMode mode, Consumer<CredentialsWithEncryption> keyInjector, byte[] body) throws IOException {
+    private byte[] wrap(PayloadEncryptionMode mode, Consumer<NTCredentialsWithEncryption> keyInjector, byte[] body) throws IOException {
         SignAndEncryptOutInterceptor interceptor = new SignAndEncryptOutInterceptor(mode);
         Message msg1 = new MessageImpl();
         Message msg2 = new SoapMessage(msg1);

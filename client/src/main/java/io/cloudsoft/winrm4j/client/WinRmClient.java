@@ -43,6 +43,7 @@ import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.interceptor.security.NamePasswordCallbackHandler;
 import org.apache.cxf.service.model.ServiceInfo;
+import org.apache.cxf.transport.http.HTTPConduitFactory;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.addressing.policy.MetadataConstants;
@@ -270,6 +271,8 @@ public class WinRmClient implements AutoCloseable {
 
         Client client = ClientProxy.getClient(winrm);
         ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
+        client.getEndpoint().getEndpointInfo().setProperty(
+                HTTPConduitFactory.class.getName(), HTTPConduitFactory.class);
         
         // when client.command is executed if doclit.bare is not set then this exception occurs:
         // Unexpected element {http://schemas.microsoft.com/wbem/wsman/1/windows/shell}CommandResponse found.
