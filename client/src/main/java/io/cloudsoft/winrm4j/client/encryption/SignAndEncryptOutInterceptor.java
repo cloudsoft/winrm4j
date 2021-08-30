@@ -14,6 +14,10 @@ import org.apache.http.auth.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Not only encrypts if necessary, but must track the payload and make it available to
+ * {@link AsyncHttpEncryptionAwareConduit} in case we need to subsequently encrypt.
+ */
 public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Message> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SignAndEncryptOutInterceptor.class);
@@ -26,7 +30,6 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
         super(Phase.PRE_STREAM);
         // we need to be set before various other output devices, so they write to us
         addBefore(StaxOutInterceptor.class.getName());
-//        addBefore(AttachmentOutInterceptor.class.getName());
         this.payloadEncryptionMode = payloadEncryptionMode;
     }
 
@@ -71,14 +74,8 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
         }
 
         @Override
-        public void flush() throws IOException {
-            LOG.info("XXX-flush "+wrapped);
-            super.flush();
-        }
-
-        @Override
         public void close() throws IOException {
-            LOG.info("XXX-close "+wrapped);
+            LOG.trace("Closing stream {}", wrapped);
             super.close();
             unencrypted.write(getBytes());
             currentStream = new NullOutputStream();
@@ -94,7 +91,7 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
         protected synchronized ContentWithType getEncrypted() {
             try {
                 if (encrypted==null) {
-                    byte[] bytesEncryptedAndSigned = new NtlmEncryptionUtils(credentials).encryptAndSign(message, unencrypted.getBytes());
+                    byte[] bytesEncryptedAndSigned = new NtlmEncryptionUtils(credentials, payloadEncryptionMode).encryptAndSign(message, unencrypted.getBytes());
                     encrypted = ContentWithType.of(message, bytesEncryptedAndSigned);
                 }
 
@@ -126,7 +123,7 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
                 if (encrypted!=null) {
                     // clear any previous encryption if no longer valid
                     encrypted = null;
-                    LOG.info("XXX-sinter-clear-encrypted");
+                    LOG.debug("Clearing previously encrypted message becasue credentials no longer authenticated");
                 }
 
                 if (payloadEncryptionMode.isRequired() && credentials==null) {
@@ -143,7 +140,6 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 
             } else {
                 return getEncrypted();
-                //return isFirstInvocation || encrypted!=null ? getEncrypted() : getUnencrypted();
             }
         }
 
@@ -153,7 +149,6 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
         }
 
     }
-
 
     public static class ContentWithType {
         public String contentType;
