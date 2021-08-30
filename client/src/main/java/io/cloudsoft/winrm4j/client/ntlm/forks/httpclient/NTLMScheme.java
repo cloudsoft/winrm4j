@@ -151,7 +151,7 @@ public class NTLMScheme extends AuthSchemeBase {
                     ntcredentials.getDomain(),
                     ntcredentials.getWorkstation());
             this.state = State.MSG_TYPE1_GENERATED;
-            LOG.info("XXX-NTLM challenge received");
+            LOG.trace("NTLM challenge received, with credentials {}", credentials);
             if (credentials instanceof NTCredentialsWithEncryption) {
                 ((NTCredentialsWithEncryption)credentials).resetEncryption(response, request);
             }
@@ -162,7 +162,7 @@ public class NTLMScheme extends AuthSchemeBase {
                     ntcredentials.getDomain(),
                     ntcredentials.getWorkstation(),
                     this.challenge);
-            LOG.info("XXX-keys received");
+            LOG.debug("NTLM type2 message received, with credentials {}", credentials);
             response = responseO.getResponse();
             this.state = State.MSG_TYPE3_GENERATED;
             if (credentials instanceof NTCredentialsWithEncryption) {

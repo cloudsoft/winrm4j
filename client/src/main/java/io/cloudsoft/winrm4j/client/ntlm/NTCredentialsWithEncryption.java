@@ -92,12 +92,16 @@ public class NTCredentialsWithEncryption extends NTCredentials {
 
     CryptoHandler decryptor = null;
     public CryptoHandler getStatefulDecryptor() {
-        if (decryptor==null) decryptor = WinrmEncryptionUtils.encryptorArc4(getServerSealingKey());
+        if (decryptor==null) decryptor = WinrmEncryptionUtils.decryptorArc4(getServerSealingKey());
         return decryptor;
     }
 
     public void resetEncryption(String response, HttpRequest request) {
-        LOG.info("XXX-encrypt-reset");
+        if (isAuthenticated()) {
+            LOG.debug("Resetting encryption for {}", request);
+        } else {
+            LOG.trace("Resetting encryption for {}", request);
+        }
 
         setIsAuthenticated(false);
         clientSealingKey = null;
@@ -115,7 +119,7 @@ public class NTCredentialsWithEncryption extends NTCredentials {
     }
 
     public void initEncryption(Type3Message signAndSealData, HttpRequest request) {
-        LOG.info("XXX-encrypt-init");
+        LOG.debug("Initializing encryption for {}", request);
 
         setIsAuthenticated(true);
         if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
@@ -125,4 +129,10 @@ public class NTCredentialsWithEncryption extends NTCredentials {
             ((EncryptionAwareHttpEntity) ((HttpEntityEnclosingRequest) request).getEntity()).refreshHeaders((HttpEntityEnclosingRequest) request);
         }
     }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName()+super.toString()+"{auth="+isAuthenticated()+"}";
+    }
+
 }
