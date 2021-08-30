@@ -129,7 +129,7 @@ public class WinRmFactory {
                 // it doesn't work to override the conduit factory, ie this doesn't work:
 //                properties.put(HTTPConduitFactory.class.getName(), new HttpEncryptingConduitFactory(builder.payloadEncryptionMode(), (Map) null));
                 // we need to set it explicitly on the input, which this special property does:
-                builder.endpointConduitFactory = new AsyncHttpEncryptionAwareConduitFactory(builder.payloadEncryptionMode(), (Map) null);
+                builder.endpointConduitFactory = new AsyncHttpEncryptionAwareConduitFactory(builder.payloadEncryptionMode(), builder.targetAuthSchemes(), (Map) null);
             }
 
             factory.setInInterceptors(inInterceptors);

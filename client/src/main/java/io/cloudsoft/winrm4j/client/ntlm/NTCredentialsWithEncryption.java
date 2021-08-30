@@ -2,9 +2,9 @@ package io.cloudsoft.winrm4j.client.ntlm;
 
 import io.cloudsoft.winrm4j.client.encryption.AsyncHttpEncryptionAwareConduit.EncryptionAwareHttpEntity;
 import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils;
-import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.CryptoHandler;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.crypto.Cipher;
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpRequest;
 import org.apache.http.auth.NTCredentials;
@@ -84,15 +84,15 @@ public class NTCredentialsWithEncryption extends NTCredentials {
         return sequenceNumberOutgoing;
     }
 
-    CryptoHandler encryptor = null;
-    public CryptoHandler getStatefulEncryptor() {
-        if (encryptor==null) encryptor = WinrmEncryptionUtils.encryptorArc4(getClientSealingKey());
+    Cipher encryptor = null;
+    public Cipher getStatefulEncryptor() {
+        if (encryptor==null) encryptor = WinrmEncryptionUtils.arc4(getClientSealingKey());
         return encryptor;
     }
 
-    CryptoHandler decryptor = null;
-    public CryptoHandler getStatefulDecryptor() {
-        if (decryptor==null) decryptor = WinrmEncryptionUtils.decryptorArc4(getServerSealingKey());
+    Cipher decryptor = null;
+    public Cipher getStatefulDecryptor() {
+        if (decryptor==null) decryptor = WinrmEncryptionUtils.arc4(getServerSealingKey());
         return decryptor;
     }
 

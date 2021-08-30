@@ -4,8 +4,6 @@ import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
 import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.bytes;
 import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.getLittleEndianUnsignedInt;
 import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.repeated;
-import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.CryptoHandler;
-import static io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.encryptorArc4;
 import io.cloudsoft.winrm4j.client.ntlm.NTCredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys;
 import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys.NegotiateFlags;
@@ -15,6 +13,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.function.Consumer;
+import javax.crypto.Cipher;
 import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.message.MessageImpl;
@@ -97,7 +96,7 @@ public class SignAndEncryptNtlmTest {
         byte[] key = bytes(0x01, 0x02, 0x03, 0x04, 0x05);
         byte[] expected1 = bytes(0xb2, 0x39, 0x63, 0x05, 0xf0, 0x3d, 0xc0, 0x27, 0xcc, 0xc3, 0x52, 0x4a, 0x0a, 0x11, 0x18, 0xa8);
         byte[] expected2 = bytes(0x69, 0x82, 0x94, 0x4f, 0x18, 0xfc, 0x82, 0xd5, 0x89, 0xc4, 0x03, 0xa4, 0x7a, 0x0d, 0x09, 0x19);
-        CryptoHandler encryptor = encryptorArc4(key);
+        Cipher encryptor = WinrmEncryptionUtils.arc4(key);
         byte[] actual1 = encryptor.update(repeated(16, new byte[]{0}));
         byte[] actual2 = encryptor.update(repeated(16, new byte[]{0}));
 
@@ -114,7 +113,7 @@ public class SignAndEncryptNtlmTest {
         byte[] expected_sign = bytes(0x01,0x00,0x00,0x00,0xff,0x2a,0xeb,0x52,0xf6,0x81,0x79,0x3a,0x00,0x00,0x00,0x00);
         byte[] plaintext_data = bytes(0x50,0x00,0x6c,0x00,0x61,0x00,0x69,0x00,0x6e,0x00,0x74,0x00,0x65,0x00,0x78,0x00,0x74,0x00);
 
-        CryptoHandler encryptor = WinrmEncryptionUtils.encryptorArc4( new NtlmKeys(sessionKey, flags).getSealKey(NtlmKeys.CLIENT_SEALING) );
+        Cipher encryptor = WinrmEncryptionUtils.arc4( new NtlmKeys(sessionKey, flags).getSealKey(NtlmKeys.CLIENT_SEALING) );
         assertEquals(encryptor.update(plaintext_data), expected_seal);
 
         byte[] unwrapped = unwrapped(wrap(PayloadEncryptionMode.REQUIRED, new NtlmKeys(sessionKey, flags)::apply, plaintext_data), plaintext_data.length);
