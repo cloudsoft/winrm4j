@@ -1,6 +1,7 @@
 package io.cloudsoft.winrm4j.client.encryption;
 
 import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
+import io.cloudsoft.winrm4j.client.ntlm.NTCredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys.NegotiateFlags;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -42,7 +43,7 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
 
         private final Message message;
 
-        CredentialsWithEncryption credentials;
+        NTCredentialsWithEncryption credentials;
         private byte[] rawBytes;
         private byte[] encryptedPayloadBytes;
         int index, lastBlockStart, lastBlockEnd;
@@ -59,8 +60,8 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
             Object creds = message.getExchange().get(Credentials.class.getName());
 
             credentials = null;
-            if (creds instanceof CredentialsWithEncryption) {
-                credentials = (CredentialsWithEncryption) creds;
+            if (creds instanceof NTCredentialsWithEncryption) {
+                credentials = (NTCredentialsWithEncryption) creds;
             }
 
             Object contentType = message.get(Message.CONTENT_TYPE);
@@ -137,7 +138,7 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
 //            expected_seq_num = struct.unpack("<I", expected_signature.seq_num)[0]
 
             ByteArrayOutputStream signature = new ByteArrayOutputStream();
-            SignAndEncryptOutInterceptor.calculateSignature(unsealedBytes, seqNum, signature, credentials, CredentialsWithEncryption::getServerSigningKey, credentials.getStatefulDecryptor()::update);
+            SignAndEncryptOutInterceptor.calculateSignature(unsealedBytes, seqNum, signature, credentials, NTCredentialsWithEncryption::getServerSigningKey, credentials.getStatefulDecryptor()::update);
 
             byte[] expected_checksum = Arrays.copyOfRange(signature.toByteArray(), checkSumOffset, 12);
             long expected_seq_num = ByteArrayUtils.readLittleEndianUnsignedInt(signature.toByteArray(), 12);

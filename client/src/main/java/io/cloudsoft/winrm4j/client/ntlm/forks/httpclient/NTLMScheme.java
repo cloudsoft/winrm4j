@@ -31,7 +31,7 @@
  */
 package io.cloudsoft.winrm4j.client.ntlm.forks.httpclient;
 
-import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
+import io.cloudsoft.winrm4j.client.ntlm.NTCredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
@@ -46,6 +46,8 @@ import org.apache.http.message.BufferedHeader;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.Args;
 import org.apache.http.util.CharArrayBuffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * NTLM is a proprietary authentication scheme developed by Microsoft
@@ -54,6 +56,8 @@ import org.apache.http.util.CharArrayBuffer;
  * @since 4.0
  */
 public class NTLMScheme extends AuthSchemeBase {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NTLMScheme.class);
 
     enum State {
         UNINITIATED,
@@ -68,7 +72,6 @@ public class NTLMScheme extends AuthSchemeBase {
 
     private State state;
     private String challenge;
-    private Type3Message signAndSealData;
 
     public NTLMScheme(final NTLMEngine engine) {
         super();
@@ -148,6 +151,10 @@ public class NTLMScheme extends AuthSchemeBase {
                     ntcredentials.getDomain(),
                     ntcredentials.getWorkstation());
             this.state = State.MSG_TYPE1_GENERATED;
+            LOG.info("XXX-NTLM challenge received");
+            if (credentials instanceof NTCredentialsWithEncryption) {
+                ((NTCredentialsWithEncryption)credentials).resetEncryption();
+            }
         } else if (this.state == State.MSG_TYPE2_RECEVIED) {
             Type3Message responseO = this.engine.generateType3MsgObject(
                     ntcredentials.getUserName(),
@@ -155,9 +162,12 @@ public class NTLMScheme extends AuthSchemeBase {
                     ntcredentials.getDomain(),
                     ntcredentials.getWorkstation(),
                     this.challenge);
-            signAndSealData = responseO;
+            LOG.info("XXX-keys received");
             response = responseO.getResponse();
             this.state = State.MSG_TYPE3_GENERATED;
+            if (credentials instanceof NTCredentialsWithEncryption) {
+                ((NTCredentialsWithEncryption)credentials).initEncryption(responseO);
+            }
         } else {
             throw new AuthenticationException("Unexpected state: " + this.state);
         }
@@ -182,15 +192,7 @@ public class NTLMScheme extends AuthSchemeBase {
             final Credentials credentials,
             final HttpRequest request,
             final HttpContext context) throws AuthenticationException {
-        Header result = authenticate(credentials, request);
-        handleSignAndSealData(credentials, request, context, signAndSealData);
-        return result;
-    }
-
-    protected void handleSignAndSealData(final Credentials credentials,
-                                       final HttpRequest request,
-                                       final HttpContext context,
-                                       final Type3Message signAndSealData) {
+        return authenticate(credentials, request);
     }
 
 }

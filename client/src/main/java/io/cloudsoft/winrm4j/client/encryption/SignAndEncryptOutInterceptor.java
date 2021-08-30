@@ -3,6 +3,7 @@ package io.cloudsoft.winrm4j.client.encryption;
 import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
 import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.concat;
 import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.getLittleEndianUnsignedInt;
+import io.cloudsoft.winrm4j.client.ntlm.NTCredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys.NegotiateFlags;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -10,11 +11,11 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.zip.CRC32;
-import org.apache.cxf.interceptor.StaxOutInterceptor;
-import org.apache.cxf.io.WriteOnCloseOutputStream;
+import org.apache.cxf.io.CachedOutputStream;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
+import org.apache.cxf.transport.http.ProxyOutputStream;
 import org.apache.http.auth.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,71 +33,86 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
     private final PayloadEncryptionMode payloadEncryptionMode;
 
     public SignAndEncryptOutInterceptor(PayloadEncryptionMode payloadEncryptionMode) {
-        super(Phase.PRE_STREAM);
-        addBefore(StaxOutInterceptor.class.getName());
+        super(Phase.POST_LOGICAL);
         this.payloadEncryptionMode = payloadEncryptionMode;
     }
 
     public void handleMessage(Message message) {
-        final OutputStream os = message.getContent(OutputStream.class);
-//        final Writer iowriter = message.getContent(Writer.class);
-//        if (os == null && iowriter == null) {
-//            return;
-//        }
-
         boolean hasApplied = message.containsKey(APPLIED);
         if (!hasApplied) {
             message.put(APPLIED, Boolean.TRUE);
-            if (os != null) {
-                final EncryptAndSignOutputStream newOut = new EncryptAndSignOutputStream(message, os);
-                message.setContent(OutputStream.class, newOut);
-            } else {
-                throw new IllegalStateException("Encryption only supported with output streams");
-            }
+            final OutputStream os = message.getContent(OutputStream.class);
+            final EncryptAndSignProxyOutputStream newOut = new EncryptAndSignProxyOutputStream(message, os);
+            message.setContent(OutputStream.class, newOut);
+            message.setContent(ProxyOutputStream.class, newOut);
         }
     }
 
-    class EncryptAndSignOutputStream extends WriteOnCloseOutputStream {
-        protected final Message message;
-        private final OutputStream stream;
+    class EncryptAndSignProxyOutputStream extends ProxyOutputStream {
 
-        CredentialsWithEncryption credentials;
+        final CachedOutputStream unencrypted;
+        final Message message;
+        OutputStream finalOut;
 
-        public EncryptAndSignOutputStream(Message message, OutputStream stream) {
-            super(stream);
+        NTCredentialsWithEncryption credentials;
+
+        public EncryptAndSignProxyOutputStream(Message message, OutputStream os) {
             this.message = message;
-            this.stream = stream;
+            unencrypted = new CachedOutputStream();
+            super.setWrappedOutputStream(os);
 
             Object creds = message.get(Credentials.class.getName());
-            if (creds instanceof CredentialsWithEncryption) {
-                this.credentials = (CredentialsWithEncryption) creds;
+            if (creds instanceof NTCredentialsWithEncryption) {
+                this.credentials = (NTCredentialsWithEncryption) creds;
             }
         }
 
         @Override
-        public void resetOut(OutputStream out, boolean copyOldContent) throws IOException {
+        public void setWrappedOutputStream(OutputStream os) {
+            if (finalOut!=null) {
+                LOG.debug("Target of "+this+" changing from "+finalOut+" to "+os);
+            }
+            this.finalOut = os;
+        }
+
+        @Override
+        public void close() throws IOException {
+            LOG.info("XXX-close "+finalOut);
+            if (finalOut!=null) {
+                processAndShip(finalOut);
+                finalOut.close();
+            } else {
+                LOG.warn("No stream for writing encrypted message to");
+            }
+        }
+
+        protected void processAndShip(OutputStream output) throws IOException {
+
             if (!payloadEncryptionMode.isPermitted() || credentials==null || !credentials.isAuthenticated()) {
                 if (payloadEncryptionMode.isRequired() && credentials==null) {
                     // if required, we need a compatible credentials model; but don't need to (cannot) encrypt until authenticated
                     throw new IllegalStateException("Encryption required but unavailable");
                 }
-                super.resetOut(out, copyOldContent);
+                if (credentials!=null && !credentials.isAuthenticated()) {
+                    output.write(unencrypted.getBytes());
+//                    output.write("AWAITING_KEYS".getBytes());
+                } else {
+                    output.write(unencrypted.getBytes());
+                }
 
             } else {
 
-                ByteArrayOutputStream out2 = new ByteArrayOutputStream();
-                super.resetOut(out2, copyOldContent);
-
-                byte[] bytesEncryptedAndSigned = encryptAndSign(message, out2.toByteArray());
-
-                out.write(bytesEncryptedAndSigned);
-                super.resetOut(out, false);
+                byte[] bytesEncryptedAndSigned = encryptAndSign(message, unencrypted.getBytes());
+                output.write(bytesEncryptedAndSigned);
             }
+
+            output.close();
         }
 
 
         protected byte[] encryptAndSign(Message message, byte[] messageBody) {
             try {
+                LOG.info("XXX-ENCRYPT "+new String(messageBody));
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
 
                 out.write(ENCRYPTED_BOUNDARY_CR.getBytes());
@@ -139,7 +155,7 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
             // seal first, even though appended afterwards, because encryptor is stateful
             sealed.write(seal(messageBody));
 
-            calculateSignature(messageBody, seqNum, signature, credentials, CredentialsWithEncryption::getClientSigningKey, this::seal);
+            calculateSignature(messageBody, seqNum, signature, credentials, NTCredentialsWithEncryption::getClientSigningKey, this::seal);
 
             encrypted.write(getLittleEndianUnsignedInt(signature.size()));
             encrypted.write(signature.toByteArray());
@@ -150,8 +166,8 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 
     static void calculateSignature(byte[] messageBody, long seqNum,
                                    ByteArrayOutputStream signature,
-                                   CredentialsWithEncryption credentials,
-                                   Function<CredentialsWithEncryption,byte[]> signingKeyFunction,
+                                   NTCredentialsWithEncryption credentials,
+                                   Function<NTCredentialsWithEncryption,byte[]> signingKeyFunction,
                                    Function<byte[],byte[]> sealer) throws IOException {
         //    sealed_message, signature = self.session.auth.session_security.wrap(message)
 //            return signature_length + signature + sealed_message
