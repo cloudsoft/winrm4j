@@ -20,12 +20,12 @@ public class WinRmExplore {
 
         WinRmTool tool = WinRmTool.Builder.builder(
                 SERVER, USERNAME, PASSWORD)
-//                .authenticationScheme(
+                .authenticationScheme(
 //                        AuthSchemes.BASIC
-////                        AuthSchemes.NTLM
-////                        AuthSchemes.SPNEGO
-////                        AuthSchemes.KERBEROS
-//                        )
+                        AuthSchemes.NTLM
+//                        AuthSchemes.SPNEGO
+//                        AuthSchemes.KERBEROS
+                        )
 
                 .port(5985)
                 .useHttps(false)

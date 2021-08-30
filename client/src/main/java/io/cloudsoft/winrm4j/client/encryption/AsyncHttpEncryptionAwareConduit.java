@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.Collection;
 import org.apache.cxf.Bus;
 import org.apache.cxf.io.CacheAndWriteOutputStream;
 import org.apache.cxf.message.Message;
@@ -20,6 +21,7 @@ import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.addressing.EndpointReferenceType;
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.auth.Credentials;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.BasicHttpEntity;
 import org.apache.http.protocol.HTTP;
 import org.slf4j.Logger;
@@ -47,10 +49,12 @@ public class AsyncHttpEncryptionAwareConduit extends AsyncHTTPConduit {
     }
 
     private final PayloadEncryptionMode payloadEncryptionMode;
+    private final Collection<String> targetAuthSchemes;
 
-    public AsyncHttpEncryptionAwareConduit(PayloadEncryptionMode payloadEncryptionMode, Bus b, EndpointInfo ei, EndpointReferenceType t, AsyncHTTPConduitFactory factory) throws IOException {
+    public AsyncHttpEncryptionAwareConduit(PayloadEncryptionMode payloadEncryptionMode, Bus b, EndpointInfo ei, EndpointReferenceType t, AsyncHttpEncryptionAwareConduitFactory factory) throws IOException {
         super(b, ei, t, factory);
-        this.payloadEncryptionMode = payloadEncryptionMode;
+        this.payloadEncryptionMode = factory.payloadEncryptionMode;
+        this.targetAuthSchemes = factory.targetAuthSchemes;
     }
 
     protected OutputStream createOutputStream(Message message,
@@ -109,6 +113,10 @@ public class AsyncHttpEncryptionAwareConduit extends AsyncHTTPConduit {
         entity.setChunked(true);
         entity.setContentType((String)message.get(Message.CONTENT_TYPE));
         requestEntity.setEntity(entity);
+
+        requestEntity.setConfig(RequestConfig.copy( requestEntity.getConfig() )
+                        .setTargetPreferredAuthSchemes(targetAuthSchemes)
+                        .build());
     }
 
     public abstract static class EncryptionAwareHttpEntity extends BasicHttpEntity {

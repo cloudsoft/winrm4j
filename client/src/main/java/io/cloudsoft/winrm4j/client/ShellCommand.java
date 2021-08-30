@@ -34,7 +34,7 @@ public class ShellCommand implements AutoCloseable {
      * If no output is available before the wsman:OperationTimeout expires, the server MUST return a WSManFault with the Code attribute equal to "2150858793"
      * https://msdn.microsoft.com/en-us/library/cc251676.aspx
      */
-    private static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED = "2150858793";
+    static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED = "2150858793";
 
     /**
      * Example response:
