@@ -1,12 +1,19 @@
 package io.cloudsoft.winrm4j.client.ntlm;
 
+import io.cloudsoft.winrm4j.client.encryption.AsyncHttpEncryptionAwareConduit.EncryptionAwareHttpEntity;
 import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils;
 import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.CryptoHandler;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.http.HttpEntityEnclosingRequest;
+import org.apache.http.HttpRequest;
 import org.apache.http.auth.NTCredentials;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NTCredentialsWithEncryption extends NTCredentials {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NTCredentialsWithEncryption.class);
 
     boolean isAuthenticated = false;
     long negotiateFlags;
@@ -89,16 +96,33 @@ public class NTCredentialsWithEncryption extends NTCredentials {
         return decryptor;
     }
 
-    public void resetEncryption() {
+    public void resetEncryption(String response, HttpRequest request) {
+        LOG.info("XXX-encrypt-reset");
+
         setIsAuthenticated(false);
+        clientSealingKey = null;
+        clientSigningKey = null;
+        serverSealingKey = null;
+        serverSigningKey = null;
+        encryptor = null;
+        decryptor = null;
         sequenceNumberIncoming.set(-1);
         sequenceNumberOutgoing.set(-1);
+
+        if (request instanceof HttpEntityEnclosingRequest && ((HttpEntityEnclosingRequest)request).getEntity() instanceof EncryptionAwareHttpEntity) {
+            ((EncryptionAwareHttpEntity) ((HttpEntityEnclosingRequest)request).getEntity()).refreshHeaders((HttpEntityEnclosingRequest) request);
+        }
     }
 
-    public void initEncryption(Type3Message signAndSealData) {
+    public void initEncryption(Type3Message signAndSealData, HttpRequest request) {
+        LOG.info("XXX-encrypt-init");
+
         setIsAuthenticated(true);
         if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
             new NtlmKeys(signAndSealData).apply(this);
+        }
+        if (request instanceof HttpEntityEnclosingRequest && ((HttpEntityEnclosingRequest)request).getEntity() instanceof EncryptionAwareHttpEntity) {
+            ((EncryptionAwareHttpEntity) ((HttpEntityEnclosingRequest) request).getEntity()).refreshHeaders((HttpEntityEnclosingRequest) request);
         }
     }
 }

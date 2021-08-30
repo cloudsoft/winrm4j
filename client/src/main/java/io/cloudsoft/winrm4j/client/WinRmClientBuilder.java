@@ -10,6 +10,7 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.SSLContext;
 
+import org.apache.cxf.transport.http.HTTPConduitFactory;
 import org.apache.http.auth.AuthScheme;
 import org.apache.http.client.config.AuthSchemes;
 
@@ -60,10 +61,11 @@ public class WinRmClientBuilder {
     protected boolean disableCertificateChecks;
     protected HostnameVerifier hostnameVerifier;
     protected SSLSocketFactory sslSocketFactory;
-    
+
     protected SSLContext sslContext;
     protected boolean requestNewKerberosTicket;
     protected PayloadEncryptionMode payloadEncryptionMode;
+    protected HTTPConduitFactory endpointConduitFactory;
 
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));

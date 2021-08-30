@@ -128,13 +128,13 @@ public class SignAndEncryptNtlmTest {
 
     private byte[] unwrapped(byte[] bytes, Integer originalLenExpected) {
         String prefix1 =
-                SignAndEncryptOutInterceptor.ENCRYPTED_BOUNDARY_CR+
+                NtlmEncryptionUtils.ENCRYPTED_BOUNDARY_CR+
                 "\tContent-Type: application/HTTP-SPNEGO-session-encrypted\r\n" +
                 "\tOriginalContent: type=application/soap+xml;charset=UTF-8;Length=";
         String prefix2 = "\r\n" +
-                SignAndEncryptOutInterceptor.ENCRYPTED_BOUNDARY_CR+
+                NtlmEncryptionUtils.ENCRYPTED_BOUNDARY_CR+
                 "\tContent-Type: application/octet-stream\r\n";
-        String suffix = SignAndEncryptOutInterceptor.ENCRYPTED_BOUNDARY_END;
+        String suffix = NtlmEncryptionUtils.ENCRYPTED_BOUNDARY_END;
 
         assertEquals(Arrays.copyOfRange(bytes, 0, prefix1.length()), prefix1.getBytes());
 

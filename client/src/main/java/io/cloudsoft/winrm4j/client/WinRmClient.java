@@ -270,10 +270,14 @@ public class WinRmClient implements AutoCloseable {
         }
 
         Client client = ClientProxy.getClient(winrm);
+
+        if (builder.endpointConduitFactory!=null) {
+            // this is different to endpoint properties
+            client.getEndpoint().getEndpointInfo().setProperty(
+                    HTTPConduitFactory.class.getName(), builder.endpointConduitFactory);
+        }
+
         ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
-        client.getEndpoint().getEndpointInfo().setProperty(
-                HTTPConduitFactory.class.getName(), HTTPConduitFactory.class);
-        
         // when client.command is executed if doclit.bare is not set then this exception occurs:
         // Unexpected element {http://schemas.microsoft.com/wbem/wsman/1/windows/shell}CommandResponse found.
         // Expected {http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}CommandResponse

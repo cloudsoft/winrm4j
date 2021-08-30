@@ -1,5 +1,6 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.encryption.AsyncHttpEncryptionAwareConduitFactory;
 import io.cloudsoft.winrm4j.client.encryption.DecryptAndVerifyInInterceptor;
 import io.cloudsoft.winrm4j.client.encryption.SignAndEncryptOutInterceptor;
 import java.lang.reflect.Field;
@@ -114,8 +115,21 @@ public class WinRmFactory {
             List<Interceptor<? extends Message>> inInterceptors = new ArrayList<>();
 
             if (builder.payloadEncryptionMode().isPermitted()) {
+                // asymmetry - we need to subclass the conduit factory to get correct encryption after re-auth;
+                // interceptors are _not_ re-run eg after thread timeout and reuth needed (see previous version in commit history);
+                // but we can use the cleaner intercept pattern to decrypt results
+
                 outInterceptors.add(new SignAndEncryptOutInterceptor(builder.payloadEncryptionMode()));
                 inInterceptors.add(new DecryptAndVerifyInInterceptor(builder.payloadEncryptionMode()));
+
+                // in addition to the out interceptor, we need a special factory to handle switching the payload
+                // during/after authentication
+
+                // also note that although the factory.setProperties are passed to the endpoint,
+                // it doesn't work to override the conduit factory, ie this doesn't work:
+//                properties.put(HTTPConduitFactory.class.getName(), new HttpEncryptingConduitFactory(builder.payloadEncryptionMode(), (Map) null));
+                // we need to set it explicitly on the input, which this special property does:
+                builder.endpointConduitFactory = new AsyncHttpEncryptionAwareConduitFactory(builder.payloadEncryptionMode(), (Map) null);
             }
 
             factory.setInInterceptors(inInterceptors);
