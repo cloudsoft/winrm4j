@@ -1,7 +1,9 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.encryption.AsyncHttpEncryptionAwareConduitFactory;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Collection;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.concurrent.TimeUnit;
@@ -10,6 +12,7 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.SSLContext;
 
+import org.apache.cxf.transport.http.HTTPConduitFactory;
 import org.apache.http.auth.AuthScheme;
 import org.apache.http.client.config.AuthSchemes;
 
@@ -60,10 +63,12 @@ public class WinRmClientBuilder {
     protected boolean disableCertificateChecks;
     protected HostnameVerifier hostnameVerifier;
     protected SSLSocketFactory sslSocketFactory;
-    
+
     protected SSLContext sslContext;
     protected boolean requestNewKerberosTicket;
     protected PayloadEncryptionMode payloadEncryptionMode;
+    protected Collection<String> targetAuthSchemes;
+    protected AsyncHttpEncryptionAwareConduitFactory endpointConduitFactory;
 
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));
@@ -162,7 +167,7 @@ public class WinRmClientBuilder {
     /**
      * @param retryReceiveAfterOperationTimeout define if a new Receive request will be send when the server returns
      *      a fault with the code {@link ShellCommand#WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED}.
-     *        Default value {@link #ALWAYS_RETRY_AFTER_OPERATION_TIMEOUT_EXPIRED}.
+     *        Default value {@link #alwaysRetryReceiveAfterOperationTimeout()}.
      */
     public WinRmClientBuilder retryReceiveAfterOperationTimeout(Predicate<String> retryReceiveAfterOperationTimeout) {
         this.retryReceiveAfterOperationTimeout = retryReceiveAfterOperationTimeout;
@@ -295,6 +300,15 @@ public class WinRmClientBuilder {
 
     public PayloadEncryptionMode payloadEncryptionMode() {
         return payloadEncryptionMode!=null ? payloadEncryptionMode : PayloadEncryptionMode.OPTIONAL;
+    }
+
+    public WinRmClientBuilder targetAuthSchemes(Collection<String> targetAuthSchemes) {
+        this.targetAuthSchemes = targetAuthSchemes;
+        return this;
+    }
+
+    public Collection<String> targetAuthSchemes() {
+        return targetAuthSchemes;
     }
 
 }

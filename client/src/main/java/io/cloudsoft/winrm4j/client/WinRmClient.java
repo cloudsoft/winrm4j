@@ -1,5 +1,6 @@
 package io.cloudsoft.winrm4j.client;
 
+import io.cloudsoft.winrm4j.client.encryption.AsyncHttpEncryptionAwareConduitFactory;
 import io.cloudsoft.winrm4j.client.ntlm.NTCredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.spnego.WsmanViaSpnegoSchemeFactory;
 import java.io.Writer;
@@ -12,10 +13,13 @@ import java.security.cert.X509Certificate;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import java.util.function.Supplier;
@@ -43,6 +47,7 @@ import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.interceptor.security.NamePasswordCallbackHandler;
 import org.apache.cxf.service.model.ServiceInfo;
+import org.apache.cxf.transport.http.HTTPConduitFactory;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.addressing.policy.MetadataConstants;
@@ -55,6 +60,7 @@ import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.NTLMSchemeFactory;
+import org.apache.http.impl.client.TargetAuthenticationStrategy;
 import org.apache.neethi.Policy;
 import org.apache.neethi.builders.PrimitiveAssertion;
 import org.ietf.jgss.GSSContext;
@@ -75,6 +81,7 @@ import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.client.wsman.OptionType;
+import sun.awt.image.ImageWatched.Link;
 
 /**
  * TODO confirm if commands can be called in parallel in one shell (probably not)!
@@ -269,8 +276,14 @@ public class WinRmClient implements AutoCloseable {
         }
 
         Client client = ClientProxy.getClient(winrm);
+
+        if (builder.endpointConduitFactory!=null) {
+            // this is different to endpoint properties
+            client.getEndpoint().getEndpointInfo().setProperty(
+                    HTTPConduitFactory.class.getName(), builder.endpointConduitFactory);
+        }
+
         ServiceInfo si = client.getEndpoint().getEndpointInfo().getService();
-        
         // when client.command is executed if doclit.bare is not set then this exception occurs:
         // Unexpected element {http://schemas.microsoft.com/wbem/wsman/1/windows/shell}CommandResponse found.
         // Expected {http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}CommandResponse
@@ -292,6 +305,9 @@ public class WinRmClient implements AutoCloseable {
 
         Supplier<Credentials> creds = () -> new NTCredentialsWithEncryption(username, password, null, domain);
 
+        Map<String,AuthSchemeProvider> authSchemeRegistry = null;
+        Set<String> authSchemes = null;
+
         switch (authenticationScheme) {
             case AuthSchemes.BASIC:
                 if (builder.payloadEncryptionMode().isRequired()) {
@@ -299,14 +315,14 @@ public class WinRmClient implements AutoCloseable {
                 }
                 bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
+                authSchemes = Collections.singleton(AuthSchemes.BASIC);
+
                 break;
 
             case AuthSchemes.NTLM:
-                Registry<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-                        .register(AuthSchemes.NTLM, new NTLMSchemeFactory())
-                        .register(AuthSchemes.SPNEGO, new NtlmMasqAsSpnegoSchemeFactory(builder.payloadEncryptionMode()))
-                        .build();
-                bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
+                authSchemeRegistry = new LinkedHashMap<>();
+                authSchemeRegistry.put(AuthSchemes.NTLM, new NTLMSchemeFactory());
+                authSchemeRegistry.put(AuthSchemes.SPNEGO, new NtlmMasqAsSpnegoSchemeFactory(builder.payloadEncryptionMode()));
 
                 advancedHttpConfigNeeded = true;
                 break;
@@ -330,18 +346,15 @@ public class WinRmClient implements AutoCloseable {
                     creds = () -> newCreds;
                 }
 
-                authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-                        .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory())
-                        .build();
-                bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
+                authSchemeRegistry = new LinkedHashMap<>();
+                authSchemeRegistry.put(AuthSchemes.KERBEROS, new KerberosSchemeFactory());
 
                 advancedHttpConfigNeeded = true;
                 break;
+
             case AuthSchemes.SPNEGO:
-                authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-                        .register(AuthSchemes.SPNEGO, new WsmanViaSpnegoSchemeFactory())
-                        .build();
-                bp.getRequestContext().put(AuthSchemeProvider.class.getName(), authSchemeRegistry);
+                authSchemeRegistry = new LinkedHashMap<>();
+                authSchemeRegistry.put(AuthSchemes.SPNEGO, new WsmanViaSpnegoSchemeFactory());
 
                 advancedHttpConfigNeeded = true;
                 break;
@@ -349,6 +362,23 @@ public class WinRmClient implements AutoCloseable {
                 throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme+"; " +
                         "options are "+Arrays.asList(AuthSchemes.BASIC, AuthSchemes.NTLM, AuthSchemes.SPNEGO, AuthSchemes.KERBEROS));
         }
+
+        if (authSchemeRegistry!=null) {
+            if (authSchemes==null) authSchemes = authSchemeRegistry.keySet();
+            RegistryBuilder<AuthSchemeProvider> rb = RegistryBuilder.<AuthSchemeProvider>create();
+            authSchemeRegistry.forEach(rb::register);
+            bp.getRequestContext().put(AuthSchemeProvider.class.getName(), rb.build());
+        }
+
+        if (authSchemes!=null) {
+            if (builder.endpointConduitFactory==null) {
+                // set this again mainly so we can set the target auth schemes; but also so we can fail if interceptors did not apply
+                builder.endpointConduitFactory = new AsyncHttpEncryptionAwareConduitFactory(builder.payloadEncryptionMode(), builder.targetAuthSchemes(), null);
+            } else {
+                builder.endpointConduitFactory.targetAuthSchemes(authSchemes);
+            }
+        }
+
         if (advancedHttpConfigNeeded) {
             bp.getRequestContext().put(Credentials.class.getName(), creds.get());
             bp.getRequestContext().put("http.autoredirect", true);

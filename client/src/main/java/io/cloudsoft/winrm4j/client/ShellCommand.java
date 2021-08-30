@@ -34,7 +34,7 @@ public class ShellCommand implements AutoCloseable {
      * If no output is available before the wsman:OperationTimeout expires, the server MUST return a WSManFault with the Code attribute equal to "2150858793"
      * https://msdn.microsoft.com/en-us/library/cc251676.aspx
      */
-    private static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED = "2150858793";
+    static final String WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED = "2150858793";
 
     /**
      * Example response:
@@ -121,10 +121,12 @@ public class ShellCommand implements AutoCloseable {
                 getStreams(receiveResponse, out, err);
 
                 CommandStateType state = receiveResponse.getCommandState();
+                // https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv/bd5802af-51ad-4f1b-9a5c-7aa499d5eee9
+                // either Done, Running, or Pending
                 if (COMMAND_STATE_DONE.equals(state.getState())) {
                     return state.getExitCode().intValue();
                 } else {
-                    LOG.debug("{} is not done. Response it received: {}", this, receiveResponse);
+                    LOG.debug("{} is not done. Response it received: {} / {}", this, state.getState(), receiveResponse);
                 }
             } catch (SOAPFaultException soapFault) {
                 /**

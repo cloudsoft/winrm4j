@@ -1,11 +1,9 @@
 package io.cloudsoft.winrm4j.client.ntlm;
 
 import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
-import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys.NegotiateFlags;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngine;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl;
-import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMScheme;
 import java.util.function.Function;
 import org.apache.http.Header;
@@ -14,7 +12,6 @@ import org.apache.http.auth.AuthenticationException;
 import org.apache.http.auth.Credentials;
 import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.message.BasicHeader;
-import org.apache.http.protocol.HttpContext;
 
 public class NtlmMasqAsSpnegoScheme extends NTLMScheme {
 
@@ -67,20 +64,6 @@ public class NtlmMasqAsSpnegoScheme extends NTLMScheme {
             throws AuthenticationException {
         Header hdr = super.authenticate(credentials, request);
         return new BasicHeader(hdr.getName(), hdr.getValue().replace("NTLM", getSchemeName()));
-    }
-
-    @Override
-    protected void handleSignAndSealData(final Credentials credentials,
-                                         final HttpRequest request,
-                                         final HttpContext context,
-                                         final Type3Message signAndSealData) {
-
-        if (credentials instanceof CredentialsWithEncryption) {
-            ((CredentialsWithEncryption)credentials).setIsAuthenticated(true);
-            if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
-                new NtlmKeys(signAndSealData).apply((CredentialsWithEncryption) credentials);
-            }
-        }
     }
 
 }

@@ -1,12 +1,19 @@
 package io.cloudsoft.winrm4j.client.ntlm;
 
-import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
+import io.cloudsoft.winrm4j.client.encryption.AsyncHttpEncryptionAwareConduit.EncryptionAwareHttpEntity;
 import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils;
-import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils.CryptoHandler;
+import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.crypto.Cipher;
+import org.apache.http.HttpEntityEnclosingRequest;
+import org.apache.http.HttpRequest;
 import org.apache.http.auth.NTCredentials;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class NTCredentialsWithEncryption extends NTCredentials implements CredentialsWithEncryption {
+public class NTCredentialsWithEncryption extends NTCredentials {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NTCredentialsWithEncryption.class);
 
     boolean isAuthenticated = false;
     long negotiateFlags;
@@ -17,88 +24,115 @@ public class NTCredentialsWithEncryption extends NTCredentials implements Creden
         super(userName, password, workstation, domain);
     }
 
-    @Override
     public boolean isAuthenticated() {
         return isAuthenticated;
     }
 
-    @Override
     public void setIsAuthenticated(boolean isAuthenticated) {
         this.isAuthenticated = isAuthenticated;
     }
 
-    @Override
     public void setClientSigningKey(byte[] clientSigningKey) {
         this.clientSigningKey = clientSigningKey;
     }
 
-    @Override
     public void setServerSigningKey(byte[] serverSigningKey) {
         this.serverSigningKey = serverSigningKey;
     }
 
-    @Override
     public byte[] getClientSigningKey() {
         return clientSigningKey;
     }
 
-    @Override
     public byte[] getServerSigningKey() {
         return serverSigningKey;
     }
 
-    @Override
     public void setClientSealingKey(byte[] clientSealingKey) {
         this.clientSealingKey = clientSealingKey;
     }
 
-    @Override
     public void setServerSealingKey(byte[] serverSealingKey) {
         this.serverSealingKey = serverSealingKey;
     }
 
-    @Override
     public byte[] getClientSealingKey() {
         return clientSealingKey;
     }
 
-    @Override
     public byte[] getServerSealingKey() {
         return serverSealingKey;
     }
 
-    @Override
     public long getNegotiateFlags() {
         return negotiateFlags;
     }
 
-    @Override
+    public boolean hasNegotiateFlag(long flag) {
+        return (getNegotiateFlags() & flag) == flag;
+    }
+
     public void setNegotiateFlags(long negotiateFlags) {
         this.negotiateFlags = negotiateFlags;
     }
 
-    @Override
     public AtomicLong getSequenceNumberIncoming() {
         return sequenceNumberIncoming;
     }
 
-    @Override
     public AtomicLong getSequenceNumberOutgoing() {
         return sequenceNumberOutgoing;
     }
 
-    CryptoHandler encryptor = null;
-    @Override
-    public CryptoHandler getStatefulEncryptor() {
-        if (encryptor==null) encryptor = WinrmEncryptionUtils.encryptorArc4(getClientSealingKey());
+    Cipher encryptor = null;
+    public Cipher getStatefulEncryptor() {
+        if (encryptor==null) encryptor = WinrmEncryptionUtils.arc4(getClientSealingKey());
         return encryptor;
     }
 
-    CryptoHandler decryptor = null;
-    @Override
-    public CryptoHandler getStatefulDecryptor() {
-        if (decryptor==null) decryptor = WinrmEncryptionUtils.encryptorArc4(getServerSealingKey());
+    Cipher decryptor = null;
+    public Cipher getStatefulDecryptor() {
+        if (decryptor==null) decryptor = WinrmEncryptionUtils.arc4(getServerSealingKey());
         return decryptor;
+    }
+
+    public void resetEncryption(String response, HttpRequest request) {
+        if (isAuthenticated()) {
+            LOG.debug("Resetting encryption for {}", request);
+        } else {
+            LOG.trace("Resetting encryption for {}", request);
+        }
+
+        setIsAuthenticated(false);
+        clientSealingKey = null;
+        clientSigningKey = null;
+        serverSealingKey = null;
+        serverSigningKey = null;
+        encryptor = null;
+        decryptor = null;
+        sequenceNumberIncoming.set(-1);
+        sequenceNumberOutgoing.set(-1);
+
+        if (request instanceof HttpEntityEnclosingRequest && ((HttpEntityEnclosingRequest)request).getEntity() instanceof EncryptionAwareHttpEntity) {
+            ((EncryptionAwareHttpEntity) ((HttpEntityEnclosingRequest)request).getEntity()).refreshHeaders((HttpEntityEnclosingRequest) request);
+        }
+    }
+
+    public void initEncryption(Type3Message signAndSealData, HttpRequest request) {
+        LOG.debug("Initializing encryption for {}", request);
+
+        setIsAuthenticated(true);
+        if (signAndSealData!=null && signAndSealData.getExportedSessionKey()!=null) {
+            new NtlmKeys(signAndSealData).apply(this);
+        }
+        if (request instanceof HttpEntityEnclosingRequest && ((HttpEntityEnclosingRequest)request).getEntity() instanceof EncryptionAwareHttpEntity) {
+            ((EncryptionAwareHttpEntity) ((HttpEntityEnclosingRequest) request).getEntity()).refreshHeaders((HttpEntityEnclosingRequest) request);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName()+super.toString()+"{auth="+isAuthenticated()+"}";
     }
 
 }

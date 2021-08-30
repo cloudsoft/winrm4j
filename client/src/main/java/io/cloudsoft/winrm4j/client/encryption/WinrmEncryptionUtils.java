@@ -20,31 +20,12 @@ public class WinrmEncryptionUtils {
         }
     }
 
-    public static CryptoHandler encryptorArc4(byte[] key) {
-        return cryptorArc4(true, key);
-    }
-
-    public static CryptoHandler decryptorArc4(byte[] key) {
-        return cryptorArc4(false, key);
-    }
-
-    public static CryptoHandler cryptorArc4(boolean forEncryption, byte[] key) {
+    public static Cipher arc4(byte[] key) {
         // engine needs to be stateful
         try {
             final Cipher rc4 = Cipher.getInstance("RC4");
             rc4.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "RC4"));
-
-            return new CryptoHandler() {
-                @Override
-                public byte[] update(byte[] input) {
-                    try {
-                        return rc4.update(input);
-
-                    } catch (Exception e) {
-                        throw new IllegalStateException(e);
-                    }
-                }
-            };
+            return rc4;
 
         } catch (Exception e) {
             throw new IllegalStateException(e);
@@ -79,10 +60,6 @@ public class WinrmEncryptionUtils {
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    public interface CryptoHandler {
-        byte[] update(byte[] input);
     }
 
 }

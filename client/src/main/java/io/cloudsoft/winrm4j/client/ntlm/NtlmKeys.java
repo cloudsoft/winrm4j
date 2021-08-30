@@ -1,7 +1,6 @@
 package io.cloudsoft.winrm4j.client.ntlm;
 
 import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.concat;
-import io.cloudsoft.winrm4j.client.encryption.CredentialsWithEncryption;
 import io.cloudsoft.winrm4j.client.encryption.WinrmEncryptionUtils;
 import io.cloudsoft.winrm4j.client.ntlm.forks.httpclient.NTLMEngineImpl.Type3Message;
 import java.util.Arrays;
@@ -283,7 +282,7 @@ public class NtlmKeys {
 
     }
 
-    public void apply(CredentialsWithEncryption credentials) {
+    public void apply(NTCredentialsWithEncryption credentials) {
         credentials.setNegotiateFlags(getNegotiateFlags());
 
         credentials.setClientSigningKey( this.getSignKey(NtlmKeys.CLIENT_SIGNING) );
