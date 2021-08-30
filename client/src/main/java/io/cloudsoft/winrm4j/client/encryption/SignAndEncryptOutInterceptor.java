@@ -1,21 +1,15 @@
 package io.cloudsoft.winrm4j.client.encryption;
 
 import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
-import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.concat;
-import static io.cloudsoft.winrm4j.client.encryption.ByteArrayUtils.getLittleEndianUnsignedInt;
 import io.cloudsoft.winrm4j.client.ntlm.NTCredentialsWithEncryption;
-import io.cloudsoft.winrm4j.client.ntlm.NtlmKeys.NegotiateFlags;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
-import java.util.function.Function;
-import java.util.zip.CRC32;
+import org.apache.commons.io.output.NullOutputStream;
+import org.apache.cxf.interceptor.StaxOutInterceptor;
 import org.apache.cxf.io.CachedOutputStream;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
-import org.apache.cxf.transport.http.ProxyOutputStream;
 import org.apache.http.auth.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +20,13 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
 
     public static final String APPLIED = SignAndEncryptOutInterceptor.class.getSimpleName()+".APPLIED";
 
-    public static final String ENCRYPTED_BOUNDARY_PREFIX = "--Encrypted Boundary";
-    public static final String ENCRYPTED_BOUNDARY_CR = ENCRYPTED_BOUNDARY_PREFIX+"\r\n";
-    public static final String ENCRYPTED_BOUNDARY_END = ENCRYPTED_BOUNDARY_PREFIX+"--\r\n";
-
     private final PayloadEncryptionMode payloadEncryptionMode;
 
     public SignAndEncryptOutInterceptor(PayloadEncryptionMode payloadEncryptionMode) {
-        super(Phase.POST_LOGICAL);
+        super(Phase.PRE_STREAM);
+        // we need to be set before various other output devices, so they write to us
+        addBefore(StaxOutInterceptor.class.getName());
+//        addBefore(AttachmentOutInterceptor.class.getName());
         this.payloadEncryptionMode = payloadEncryptionMode;
     }
 
@@ -42,24 +35,29 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
         if (!hasApplied) {
             message.put(APPLIED, Boolean.TRUE);
             final OutputStream os = message.getContent(OutputStream.class);
-            final EncryptAndSignProxyOutputStream newOut = new EncryptAndSignProxyOutputStream(message, os);
+            final EncryptAndSignOutputStream newOut = new EncryptAndSignOutputStream(message, os);
             message.setContent(OutputStream.class, newOut);
-            message.setContent(ProxyOutputStream.class, newOut);
+            message.setContent(EncryptAndSignOutputStream.class, newOut);
         }
     }
 
-    class EncryptAndSignProxyOutputStream extends ProxyOutputStream {
+    class EncryptAndSignOutputStream extends CachedOutputStream {
 
         final CachedOutputStream unencrypted;
+        ContentWithType unencryptedResult = null;
+        ContentWithType encrypted = null;
         final Message message;
-        OutputStream finalOut;
+
+        OutputStream wrapped;
 
         NTCredentialsWithEncryption credentials;
 
-        public EncryptAndSignProxyOutputStream(Message message, OutputStream os) {
+        public EncryptAndSignOutputStream(Message message, OutputStream os) {
+            super();
+
             this.message = message;
+            wrapped = os;
             unencrypted = new CachedOutputStream();
-            super.setWrappedOutputStream(os);
 
             Object creds = message.get(Credentials.class.getName());
             if (creds instanceof NTCredentialsWithEncryption) {
@@ -68,195 +66,115 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
         }
 
         @Override
-        public void setWrappedOutputStream(OutputStream os) {
-            if (finalOut!=null) {
-                LOG.debug("Target of "+this+" changing from "+finalOut+" to "+os);
-            }
-            this.finalOut = os;
+        public void resetOut(OutputStream out, boolean copyOldContent) throws IOException {
+            super.resetOut(out, copyOldContent);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            LOG.info("XXX-flush "+wrapped);
+            super.flush();
         }
 
         @Override
         public void close() throws IOException {
-            LOG.info("XXX-close "+finalOut);
-            if (finalOut!=null) {
-                processAndShip(finalOut);
-                finalOut.close();
+            LOG.info("XXX-close "+wrapped);
+            super.close();
+            unencrypted.write(getBytes());
+            currentStream = new NullOutputStream();
+
+            if (wrapped!=null) {
+                processAndShip(wrapped);
+                wrapped.close();
             } else {
                 LOG.warn("No stream for writing encrypted message to");
             }
         }
 
-        protected void processAndShip(OutputStream output) throws IOException {
+        protected synchronized ContentWithType getEncrypted() {
+            try {
+                if (encrypted==null) {
+                    byte[] bytesEncryptedAndSigned = new NtlmEncryptionUtils(credentials).encryptAndSign(message, unencrypted.getBytes());
+                    encrypted = ContentWithType.of(message, bytesEncryptedAndSigned);
+                }
+
+                return encrypted;
+
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        protected byte[] getUnencrypted() {
+            try {
+                return unencrypted.getBytes();
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        public synchronized ContentWithType getAppropriate() {
+            return getAppropriate(false);
+        }
+
+        public synchronized ContentWithType getAppropriate(boolean isFirstInvocation) {
+            if (unencryptedResult==null) {
+                unencryptedResult = ContentWithType.of(message, null);
+            }
 
             if (!payloadEncryptionMode.isPermitted() || credentials==null || !credentials.isAuthenticated()) {
+                if (encrypted!=null) {
+                    // clear any previous encryption if no longer valid
+                    encrypted = null;
+                    LOG.info("XXX-sinter-clear-encrypted");
+                }
+
                 if (payloadEncryptionMode.isRequired() && credentials==null) {
                     // if required, we need a compatible credentials model; but don't need to (cannot) encrypt until authenticated
                     throw new IllegalStateException("Encryption required but unavailable");
                 }
                 if (credentials!=null && !credentials.isAuthenticated()) {
-                    output.write(unencrypted.getBytes());
-//                    output.write("AWAITING_KEYS".getBytes());
+                    return unencryptedResult.with(AsyncHttpEncryptionAwareConduit.PRE_AUTH_BOGUS_PAYLOAD);
+
                 } else {
-                    output.write(unencrypted.getBytes());
+                    return unencryptedResult.with(getUnencrypted());
+
                 }
 
             } else {
-
-                byte[] bytesEncryptedAndSigned = encryptAndSign(message, unencrypted.getBytes());
-                output.write(bytesEncryptedAndSigned);
+                return getEncrypted();
+                //return isFirstInvocation || encrypted!=null ? getEncrypted() : getUnencrypted();
             }
+        }
 
+        protected void processAndShip(OutputStream output) throws IOException {
+            output.write(getAppropriate(true).payload);
             output.close();
         }
 
-
-        protected byte[] encryptAndSign(Message message, byte[] messageBody) {
-            try {
-                LOG.info("XXX-ENCRYPT "+new String(messageBody));
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-                out.write(ENCRYPTED_BOUNDARY_CR.getBytes());
-                out.write(("\tContent-Type: " + "application/HTTP-SPNEGO-session-encrypted" + "\r\n").getBytes());
-
-                //message.get(Message.CONTENT_TYPE); - if we need the action // Content-Type -> application/soap+xml; action="http://schemas.xmlsoap.org/ws/2004/09/transfer/Create"
-                out.write(("\tOriginalContent: type=application/soap+xml;charset=UTF-8;Length=" + messageBody.length + "\r\n").getBytes());
-
-                out.write(ENCRYPTED_BOUNDARY_CR.getBytes());
-                out.write("\tContent-Type: application/octet-stream\r\n".getBytes());
-
-                // for credssh chunking might be needed, but not for ntlm
-
-                writeNtlmEncrypted(messageBody, out);
-
-                out.write(ENCRYPTED_BOUNDARY_END.getBytes());
-
-                message.put(Message.CONTENT_TYPE, "multipart/encrypted;protocol=\"application/HTTP-SPNEGO-session-encrypted\";boundary=\"Encrypted Boundary\"");
-                message.put(Message.ENCODING, null);
-                return out.toByteArray();
-
-            } catch (Exception e) {
-                throw new IllegalStateException("Cannot encrypt WinRM message", e);
-            }
-        }
-
-        private byte[] seal(byte[] in) {
-            return credentials.getStatefulEncryptor().update(in);
-        }
-
-        private void writeNtlmEncrypted(byte[] messageBody, ByteArrayOutputStream encrypted) throws IOException {
-
-            // ./pywinrm/winrm/encryption.py
-            // ./ntlm_auth/session_security.py
-
-            long seqNum = credentials.getSequenceNumberOutgoing().incrementAndGet();
-            ByteArrayOutputStream signature = new ByteArrayOutputStream();
-            ByteArrayOutputStream sealed = new ByteArrayOutputStream();
-
-            // seal first, even though appended afterwards, because encryptor is stateful
-            sealed.write(seal(messageBody));
-
-            calculateSignature(messageBody, seqNum, signature, credentials, NTCredentialsWithEncryption::getClientSigningKey, this::seal);
-
-            encrypted.write(getLittleEndianUnsignedInt(signature.size()));
-            encrypted.write(signature.toByteArray());
-            encrypted.write(sealed.toByteArray());
-        }
-
     }
 
-    static void calculateSignature(byte[] messageBody, long seqNum,
-                                   ByteArrayOutputStream signature,
-                                   NTCredentialsWithEncryption credentials,
-                                   Function<NTCredentialsWithEncryption,byte[]> signingKeyFunction,
-                                   Function<byte[],byte[]> sealer) throws IOException {
-        //    sealed_message, signature = self.session.auth.session_security.wrap(message)
-//            return signature_length + signature + sealed_message
 
-//            seq_num = struct.pack("<I", seq_num)
-//            if negotiate_flags & \
-//            NegotiateFlags.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-//            checksum_hmac = hmac.new(signing_key, seq_num + message,
-//                    digestmod=hashlib.md5)
-//            if negotiate_flags & NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
-//            checksum = handle.update(checksum_hmac.digest()[:8])
-//        else:
-//            checksum = checksum_hmac.digest()[:8]
-//
-//            signature = _NtlmMessageSignature2(checksum, seq_num)
-//
-//    else:
-//            message_crc = binascii.crc32(message) % (1 << 32)
-//            checksum = struct.pack("<I", message_crc)
-//            random_pad = handle.update(struct.pack("<I", 0))
-//            checksum = handle.update(checksum)
-//            seq_num = handle.update(seq_num)
-//            random_pad = struct.pack("<I", 0)
-//
-//            signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
+    public static class ContentWithType {
+        public String contentType;
+        public String encoding;
+        public byte[] payload;
 
+        static ContentWithType of(Message message, byte[] payload) {
+            return of((String)message.get(Message.CONTENT_TYPE), (String)message.get(Message.ENCODING), payload);
+        }
 
-        if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY)) {
+        static ContentWithType of(String contentType, String encoding, byte[] payload) {
+            ContentWithType result = new ContentWithType();
+            result.contentType = contentType;
+            result.encoding = encoding;
+            result.payload = payload;
+            return result;
+        }
 
-//            checksum_hmac = hmac.new(signing_key, seq_num + message,
-//                    digestmod=hashlib.md5)
-//            if negotiate_flags & NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
-//            checksum = handle.update(checksum_hmac.digest()[:8])
-//        else:
-//            checksum = checksum_hmac.digest()[:8]
-
-            // also see HMACMD5 in NTLMEngineIpml
-            byte[] checksum = WinrmEncryptionUtils.hmacMd5(signingKeyFunction.apply(credentials), concat(getLittleEndianUnsignedInt(seqNum), messageBody));
-            checksum = Arrays.copyOfRange(checksum, 0, 8);
-
-            if (credentials.hasNegotiateFlag(NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH)) {
-                checksum = sealer.apply(checksum);
-            }
-//
-//            signature = _NtlmMessageSignature2(checksum, seq_num)
-//                self.version = b"\x01\x00\x00\x00"
-//                signature = self.version
-//                signature += self.checksum
-//                signature += self.seq_num
-
-            // version
-            signature.write(new byte[]{1, 0, 0, 0});
-            // checksum
-            signature.write(checksum);
-            // seq num
-            signature.write(getLittleEndianUnsignedInt(seqNum));
-
-
-        } else {
-
-//            message_crc = binascii.crc32(message) % (1 << 32)
-//            checksum = struct.pack("<I", message_crc)
-//            random_pad = handle.update(struct.pack("<I", 0))
-//            checksum = handle.update(checksum)
-//            seq_num = handle.update(seq_num)
-//            random_pad = struct.pack("<I", 0)
-//
-//            signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
-
-//        message_crc = binascii.crc32(message) % (1 << 32)
-            CRC32 crc = new CRC32();
-            crc.update(messageBody);
-            long messageCrc = crc.getValue();
-
-//        signature = _NtlmMessageSignature1(random_pad, checksum, seq_num)
-//            self.version = b"\x01\x00\x00\x00"
-//            signature = self.version
-//            signature += self.random_pad
-//            signature += self.checksum
-//            signature += self.seq_num
-
-            // version
-            signature.write(new byte[]{1, 0, 0, 0});
-            // random pad
-            signature.write(sealer.apply(getLittleEndianUnsignedInt(0)));
-            // checksum
-            signature.write(sealer.apply(getLittleEndianUnsignedInt(messageCrc)));
-            // seq num
-            signature.write(sealer.apply(getLittleEndianUnsignedInt(seqNum)));
+        public ContentWithType with(byte[] payload) {
+            return ContentWithType.of(this.contentType, this.encoding, payload);
         }
     }
+
 }

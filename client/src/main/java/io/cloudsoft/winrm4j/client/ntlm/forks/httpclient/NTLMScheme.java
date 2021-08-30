@@ -153,7 +153,7 @@ public class NTLMScheme extends AuthSchemeBase {
             this.state = State.MSG_TYPE1_GENERATED;
             LOG.info("XXX-NTLM challenge received");
             if (credentials instanceof NTCredentialsWithEncryption) {
-                ((NTCredentialsWithEncryption)credentials).resetEncryption();
+                ((NTCredentialsWithEncryption)credentials).resetEncryption(response, request);
             }
         } else if (this.state == State.MSG_TYPE2_RECEVIED) {
             Type3Message responseO = this.engine.generateType3MsgObject(
@@ -166,7 +166,7 @@ public class NTLMScheme extends AuthSchemeBase {
             response = responseO.getResponse();
             this.state = State.MSG_TYPE3_GENERATED;
             if (credentials instanceof NTCredentialsWithEncryption) {
-                ((NTCredentialsWithEncryption)credentials).initEncryption(responseO);
+                ((NTCredentialsWithEncryption)credentials).initEncryption(responseO, request);
             }
         } else {
             throw new AuthenticationException("Unexpected state: " + this.state);

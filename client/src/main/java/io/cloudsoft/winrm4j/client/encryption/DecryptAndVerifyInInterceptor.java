@@ -74,7 +74,7 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
 //        }
 //        if (contentType instanceof Iterable) contentType = ((Iterable)contentType).iterator().next();
 
-            boolean isEncrypted = (contentType.toString().startsWith("multipart/encrypted"));
+            boolean isEncrypted = contentType==null ? false : contentType.toString().startsWith("multipart/encrypted");
 
             if (isEncrypted) {
                 if (!payloadEncryptionMode.isPermitted()) throw new IllegalStateException("Encrypted payload from server when encryption not permitted");
@@ -108,6 +108,8 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
 
             verify();
 
+            LOG.info("XXX-decrypt "+new String(unsealedBytes));
+
             message.setContent(InputStream.class, new ByteArrayInputStream(unsealedBytes));
         }
 
@@ -138,7 +140,7 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
 //            expected_seq_num = struct.unpack("<I", expected_signature.seq_num)[0]
 
             ByteArrayOutputStream signature = new ByteArrayOutputStream();
-            SignAndEncryptOutInterceptor.calculateSignature(unsealedBytes, seqNum, signature, credentials, NTCredentialsWithEncryption::getServerSigningKey, credentials.getStatefulDecryptor()::update);
+            NtlmEncryptionUtils.calculateSignature(unsealedBytes, seqNum, signature, credentials, NTCredentialsWithEncryption::getServerSigningKey, credentials.getStatefulDecryptor()::update);
 
             byte[] expected_checksum = Arrays.copyOfRange(signature.toByteArray(), checkSumOffset, 12);
             long expected_seq_num = ByteArrayUtils.readLittleEndianUnsignedInt(signature.toByteArray(), 12);
@@ -157,8 +159,8 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
 
         void unwrap() {
             index = 0;
-            skipOver(SignAndEncryptOutInterceptor.ENCRYPTED_BOUNDARY_CR);
-            skipUntil("\n"+SignAndEncryptOutInterceptor.ENCRYPTED_BOUNDARY_CR);
+            skipOver(NtlmEncryptionUtils.ENCRYPTED_BOUNDARY_CR);
+            skipUntil("\n"+NtlmEncryptionUtils.ENCRYPTED_BOUNDARY_CR);
 
             newHeaders = new String(Arrays.copyOfRange(rawBytes, lastBlockStart, lastBlockEnd)).trim();
 //                            "\tContent-Type: application/HTTP-SPNEGO-session-encrypted\r\n" +
@@ -171,9 +173,9 @@ public class DecryptAndVerifyInInterceptor extends AbstractPhaseInterceptor<Mess
             // for credssh de-chunking might be needed, but not for ntlm
 
             lastBlockStart = index;
-            lastBlockEnd = rawBytes.length - SignAndEncryptOutInterceptor.ENCRYPTED_BOUNDARY_END.length();
+            lastBlockEnd = rawBytes.length - NtlmEncryptionUtils.ENCRYPTED_BOUNDARY_END.length();
             index = lastBlockEnd;
-            skipOver(SignAndEncryptOutInterceptor.ENCRYPTED_BOUNDARY_END);
+            skipOver(NtlmEncryptionUtils.ENCRYPTED_BOUNDARY_END);
 
             encryptedPayloadBytes = Arrays.copyOfRange(rawBytes, lastBlockStart, lastBlockEnd);
         }

@@ -72,6 +72,7 @@
     <httpcomponents.httpcore.version>4.4.12</httpcomponents.httpcore.version>
     <httpcomponents.httpasyncclient.version>4.1.4</httpcomponents.httpasyncclient.version>
     <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version>
+    <commons-io.version>2.4</commons-io.version>
     <xmlunit.version>2.3.0</xmlunit.version>
   </properties>
 
