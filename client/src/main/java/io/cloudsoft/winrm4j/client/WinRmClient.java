@@ -96,6 +96,8 @@ public class WinRmClient implements AutoCloseable {
     private final Locale locale;
     private final Map<String, String> environment;
     private final PayloadEncryptionMode payloadEncryptionMode;
+    private final WinRm service;
+    private AsyncHttpEncryptionAwareConduitFactory factoryToCleanup;
 
     // Can be changed throughout object's lifetime, but deprecated
     private String operationTimeout;
@@ -199,6 +201,8 @@ public class WinRmClient implements AutoCloseable {
     }
 
     WinRmClient(WinRmClientBuilder builder) {
+        boolean cleanupFactory = builder.endpointConduitFactory == null;
+
         this.workingDirectory = builder.workingDirectory;
         this.locale = builder.locale;
         this.operationTimeout = toDuration(builder.operationTimeout);
@@ -213,12 +217,16 @@ public class WinRmClient implements AutoCloseable {
             this.cleanupContext = true;
         }
 
-        WinRm service = getService(builder);
+        service = getService(builder);
         retryingHandler = new RetryingProxyHandler(service, builder.failureRetryPolicy);
         this.winrm = (WinRm) Proxy.newProxyInstance(WinRm.class.getClassLoader(),
                 new Class[] {WinRm.class, BindingProvider.class},
                 retryingHandler);
         this.payloadEncryptionMode = builder.payloadEncryptionMode();
+
+        if (cleanupFactory) {
+            this.factoryToCleanup = builder.endpointConduitFactory;
+        }
     }
 
     /** 
@@ -577,10 +585,16 @@ public class WinRmClient implements AutoCloseable {
 
     @Override
     public void close() {
-        if (context == null) return;
-        boolean isBusRunning = context.getBus().getState() != BusState.SHUTDOWN;
-        if (isBusRunning && cleanupContext) {
-            context.getBus().shutdown(true);
+        if (factoryToCleanup!=null && !factoryToCleanup.isShutdown()) {
+            factoryToCleanup.shutdown();
+            factoryToCleanup = null;
+        }
+
+        if (context!=null && cleanupContext) {
+            boolean isBusRunning = context.getBus().getState() != BusState.SHUTDOWN;
+            if (isBusRunning) {
+                context.getBus().shutdown(true);
+            }
         }
     }
 
