@@ -332,6 +332,59 @@ public class WinRmTool {
         return executeCommand(command, args, DEFAULT_SKIP_COMMAND_SHELL, null, null);
     }
 
+    public WinRmClient buildClient(Writer out, Writer err) {
+        WinRmClient.checkNotNull(out, "Out Writer");
+        WinRmClient.checkNotNull(err, "Err Writer");
+        WinRmClientBuilder builder = WinRmClient.builder(address);
+        builder.authenticationScheme(authenticationScheme);
+        if (operationTimeout != null) {
+            builder.operationTimeout(operationTimeout);
+        }
+        if (retryReceiveAfterOperationTimeout != null) {
+            builder.retryReceiveAfterOperationTimeout(retryReceiveAfterOperationTimeout);
+        }
+        if (connectionTimeout != null) {
+            builder.connectionTimeout(connectionTimeout);
+        }
+        if (receiveTimeout != null) {
+            builder.receiveTimeout(receiveTimeout);
+        }
+        if (username != null && password != null) {
+            builder.credentials(domain, username, password);
+        }
+        if (disableCertificateChecks) {
+            LOG.trace("Disabled check for https connections " + this);
+            builder.disableCertificateChecks(disableCertificateChecks);
+        }
+        if (hostnameVerifier != null) {
+            builder.hostnameVerifier(hostnameVerifier);
+        }
+        if (sslSocketFactory != null) {
+            builder.sslSocketFactory(sslSocketFactory);
+        }
+        if (sslContext != null) {
+            builder.sslContext(sslContext);
+        }
+        if (workingDirectory != null) {
+            builder.workingDirectory(workingDirectory);
+        }
+        if (environment != null) {
+            builder.environment(environment);
+        }
+        if (failureRetryPolicy != null) {
+            builder.failureRetryPolicy(failureRetryPolicy);
+        }
+        if (context != null) {
+            builder.context(context);
+        }
+        if (requestNewKerberosTicket) {
+            builder.requestNewKerberosTicket(requestNewKerberosTicket);
+        }
+        builder.payloadEncryptionMode(payloadEncryptionMode);
+
+        return builder.build();
+    }
+
     public WinRmToolResponse executeCommand(String command, Writer out, Writer err) {
         return executeCommand(command, null, DEFAULT_SKIP_COMMAND_SHELL, out, err);
     }
