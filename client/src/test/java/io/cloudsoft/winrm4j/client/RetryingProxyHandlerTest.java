@@ -16,6 +16,10 @@ import java.util.function.Function;
 
 import javax.xml.ws.WebServiceException;
 
+import io.cloudsoft.winrm4j.client.enumeration.EnumerateResponse;
+import io.cloudsoft.winrm4j.client.enumeration.PullResponse;
+import io.cloudsoft.winrm4j.client.wsman.Enumerate;
+import io.cloudsoft.winrm4j.client.wsman.Pull;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -196,6 +200,20 @@ public class RetryingProxyHandlerTest {
 			RecordedCall call = new RecordedCall("create", Arrays.asList(shell, resourceURI, maxEnvelopeSize, operationTimeout, locale, optionSet));
 			calls.add(call);
 			return (ResourceCreated) handler.apply(call);
+		}
+
+		@Override
+		public EnumerateResponse enumerate(Enumerate enumerate, String resourceURI, String sessionId, int maxEnvelopeSize, String operationTimeout, Locale locale, OptionSetType optionSet) {
+			RecordedCall call = new RecordedCall("enumerate", Arrays.asList(enumerate, resourceURI, sessionId, maxEnvelopeSize, operationTimeout, locale, optionSet));
+			calls.add(call);
+			return (EnumerateResponse) handler.apply(call);
+		}
+
+		@Override
+		public PullResponse enumeratePull(Pull pull, String resourceURI, String sessionId, int maxEnvelopeSize, String operationTimeout, Locale locale, OptionSetType optionSet) {
+			RecordedCall call = new RecordedCall("enumeratePull", Arrays.asList(pull, resourceURI, sessionId, maxEnvelopeSize, operationTimeout, locale, optionSet));
+			calls.add(call);
+			return (PullResponse) handler.apply(call);
 		}
 	}
 }
