@@ -81,7 +81,6 @@ import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.client.wsman.OptionType;
-import sun.awt.image.ImageWatched.Link;
 
 /**
  * TODO confirm if commands can be called in parallel in one shell (probably not)!
