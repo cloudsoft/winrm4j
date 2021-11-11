@@ -75,19 +75,28 @@ public class ShellCommand implements AutoCloseable {
     }
 
     public int execute(String cmd, Writer out, Writer err) {
+        return execute(cmd, null, Boolean.FALSE, out, err);
+    }
+    public int execute(String cmd, List<String> args, Boolean skipCommandShell, Writer out, Writer err) {
         WinRmClient.checkNotNull(cmd, "command");
 
         final CommandLine cmdLine = new CommandLine();
         cmdLine.setCommand(cmd);
+        if (args!=null) cmdLine.getArguments().addAll(args);
+
         final OptionSetType optSetCmd = new OptionSetType();
+
         OptionType optConsolemodeStdin = new OptionType();
         optConsolemodeStdin.setName("WINRS_CONSOLEMODE_STDIN");
         optConsolemodeStdin.setValue("TRUE");
         optSetCmd.getOption().add(optConsolemodeStdin);
-        OptionType optSkipCmdShell = new OptionType();
-        optSkipCmdShell.setName("WINRS_SKIP_CMD_SHELL");
-        optSkipCmdShell.setValue("FALSE");
-        optSetCmd.getOption().add(optSkipCmdShell);
+
+        if (skipCommandShell!=null) {
+            OptionType optSkipCmdShell = new OptionType();
+            optSkipCmdShell.setName("WINRS_SKIP_CMD_SHELL");
+            optSkipCmdShell.setValue(skipCommandShell.toString().toUpperCase());
+            optSetCmd.getOption().add(optSkipCmdShell);
+        }
 
         numberOfReceiveCalls = 0;
 

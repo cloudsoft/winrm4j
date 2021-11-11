@@ -271,6 +271,7 @@ public class WinRmClient implements AutoCloseable {
         String password = builder.password;
         String domain = builder.domain;
         boolean disableCertificateChecks = builder.disableCertificateChecks;
+        boolean allowChunking = builder.allowChunking;
         HostnameVerifier hostnameVerifier = builder.hostnameVerifier;
         SSLSocketFactory sslSocketFactory = builder.sslSocketFactory;
         SSLContext sslContext = builder.sslContext;
@@ -309,7 +310,7 @@ public class WinRmClient implements AutoCloseable {
         bp.getRequestContext().put(PolicyConstants.POLICY_OVERRIDE, policy);
 
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, endpoint);
-        boolean advancedHttpConfigNeeded = false;
+        boolean nonBasicHttpConfigNeeded = false;
 
         Supplier<Credentials> creds = () -> new NTCredentialsWithEncryption(username, password, null, domain);
 
@@ -332,7 +333,7 @@ public class WinRmClient implements AutoCloseable {
                 authSchemeRegistry.put(AuthSchemes.NTLM, new NTLMSchemeFactory());
                 authSchemeRegistry.put(AuthSchemes.SPNEGO, new NtlmMasqAsSpnegoSchemeFactory(builder.payloadEncryptionMode()));
 
-                advancedHttpConfigNeeded = true;
+                nonBasicHttpConfigNeeded = true;
                 break;
 
             case AuthSchemes.KERBEROS:
@@ -357,14 +358,14 @@ public class WinRmClient implements AutoCloseable {
                 authSchemeRegistry = new LinkedHashMap<>();
                 authSchemeRegistry.put(AuthSchemes.KERBEROS, new KerberosSchemeFactory());
 
-                advancedHttpConfigNeeded = true;
+                nonBasicHttpConfigNeeded = true;
                 break;
 
             case AuthSchemes.SPNEGO:
                 authSchemeRegistry = new LinkedHashMap<>();
                 authSchemeRegistry.put(AuthSchemes.SPNEGO, new WsmanViaSpnegoSchemeFactory());
 
-                advancedHttpConfigNeeded = true;
+                nonBasicHttpConfigNeeded = true;
                 break;
             default:
                 throw new UnsupportedOperationException("No such authentication scheme " + authenticationScheme+"; " +
@@ -387,38 +388,39 @@ public class WinRmClient implements AutoCloseable {
             }
         }
 
-        if (advancedHttpConfigNeeded) {
+        AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
+        bp.getRequestContext().put("http.autoredirect", true);
+
+        if (nonBasicHttpConfigNeeded) {
             bp.getRequestContext().put(Credentials.class.getName(), creds.get());
-            bp.getRequestContext().put("http.autoredirect", true);
-
-            AsyncHTTPConduit httpClient = (AsyncHTTPConduit) client.getConduit();
-
-            if (disableCertificateChecks) {
-                TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                tlsClientParameters.setDisableCNCheck(true);
-                tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
-                    @Override public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {}
-                    @Override public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {}
-                    @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                }});
-                httpClient.setTlsClientParameters(tlsClientParameters);
-            }
-            if (hostnameVerifier != null || sslSocketFactory != null || sslContext != null) {
-                TLSClientParameters tlsClientParameters = new TLSClientParameters();
-                tlsClientParameters.setHostnameVerifier(hostnameVerifier);
-                tlsClientParameters.setSSLSocketFactory(sslSocketFactory);
-                tlsClientParameters.setSslContext(sslContext);
-                httpClient.setTlsClientParameters(tlsClientParameters);
-            }
-            HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
-            httpClientPolicy.setAllowChunking(false);
-            httpClientPolicy.setConnectionTimeout(connectionTimeout);
-            httpClientPolicy.setConnectionRequestTimeout(connectionRequestTimeout);
-            httpClientPolicy.setReceiveTimeout(receiveTimeout);
-
-            httpClient.setClient(httpClientPolicy);
-            httpClient.getClient().setAutoRedirect(true);
         }
+
+        if (disableCertificateChecks) {
+            TLSClientParameters tlsClientParameters = new TLSClientParameters();
+            tlsClientParameters.setDisableCNCheck(true);
+            tlsClientParameters.setTrustManagers(new TrustManager[]{new X509TrustManager() {
+                @Override public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {}
+                @Override public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {}
+                @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            }});
+            httpClient.setTlsClientParameters(tlsClientParameters);
+        }
+        if (hostnameVerifier != null || sslSocketFactory != null || sslContext != null) {
+            TLSClientParameters tlsClientParameters = new TLSClientParameters();
+            tlsClientParameters.setHostnameVerifier(hostnameVerifier);
+            tlsClientParameters.setSSLSocketFactory(sslSocketFactory);
+            tlsClientParameters.setSslContext(sslContext);
+            httpClient.setTlsClientParameters(tlsClientParameters);
+        }
+
+        HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+        httpClientPolicy.setAllowChunking(allowChunking);
+        httpClientPolicy.setConnectionTimeout(connectionTimeout);
+        httpClientPolicy.setConnectionRequestTimeout(connectionRequestTimeout);
+        httpClientPolicy.setReceiveTimeout(receiveTimeout);
+
+        httpClient.setClient(httpClientPolicy);
+        httpClient.getClient().setAutoRedirect(true);
     }
 
     /**
