@@ -4,6 +4,7 @@ import io.cloudsoft.winrm4j.client.PayloadEncryptionMode;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -38,6 +39,7 @@ public class WinRmTool {
 
     public static final int DEFAULT_WINRM_PORT = 5985;
     public static final int DEFAULT_WINRM_HTTPS_PORT = 5986;
+    public static final Boolean DEFAULT_SKIP_COMMAND_SHELL = Boolean.FALSE;
 
     // TODO consider make them non-final and accessing the properties directly from builder.
     // This impose moving getEndpointUrl() to the WinRmTool.
@@ -323,14 +325,20 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executeCommand(String command) {
-        StringWriter out = new StringWriter();
-        StringWriter err = new StringWriter();
-        return executeCommand(command, out, err);
+        return executeCommand(command, null, null);
+    }
+
+    public WinRmToolResponse executeCommand(String command, List<String> args) {
+        return executeCommand(command, args, DEFAULT_SKIP_COMMAND_SHELL, null, null);
     }
 
     public WinRmToolResponse executeCommand(String command, Writer out, Writer err) {
-        WinRmClient.checkNotNull(out, "Out Writer");
-        WinRmClient.checkNotNull(err, "Err Writer");
+        return executeCommand(command, null, DEFAULT_SKIP_COMMAND_SHELL, out, err);
+    }
+
+    public WinRmToolResponse executeCommand(String command, List<String> args, Boolean skipCommandShell, Writer out, Writer err) {
+        if (out==null) out = new StringWriter();
+        if (err==null) err = new StringWriter();
         WinRmClientBuilder builder = WinRmClient.builder(address);
         builder.authenticationScheme(authenticationScheme);
         if (operationTimeout != null) {
@@ -385,7 +393,7 @@ public class WinRmTool {
 
         try(WinRmClient client = builder.build()) {
             try (ShellCommand shell = client.createShell()) {
-                int code = shell.execute(command, out, err);
+                int code = shell.execute(command, args, skipCommandShell, out, err);
                 winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
                 winRmToolResponse.setNumberOfReceiveCalls(shell.getNumberOfReceiveCalls());
             }
@@ -400,7 +408,7 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executePs(String psCommand) {
-        return executePs(psCommand, new StringWriter(), new StringWriter());
+        return executePs(psCommand, null, null);
     }
 
     /**
@@ -409,7 +417,11 @@ public class WinRmTool {
      * @since 0.2
      */
     public WinRmToolResponse executePs(String psCommand, Writer out, Writer err) {
-        return executeCommand(compilePs(psCommand), out, err);
+        return executePs(psCommand, DEFAULT_SKIP_COMMAND_SHELL, out, err);
+    }
+
+    public WinRmToolResponse executePs(String psCommand, Boolean skipCommandShell, Writer out, Writer err) {
+        return executeCommand("powershell", Arrays.asList("-encodedcommand", compileBase64(psCommand)), skipCommandShell, out, err);
     }
 
     /**
@@ -431,13 +443,15 @@ public class WinRmTool {
      * Consider instead uploading a script file, and then executing that as a one-line command.
      */
     public WinRmToolResponse executePs(List<String> commands, Writer out, Writer err) {
-        return executeCommand(compilePs(joinPs(commands)), out, err);
+        return executePs(commands, false, out, err);
+    }
+    public WinRmToolResponse executePs(List<String> commands, Boolean skipCommandShell, Writer out, Writer err) {
+        return executePs(joinPs(commands), skipCommandShell, out, err);
     }
 
-    private String compilePs(String psScript) {
+    private String compileBase64(String psScript) {
         byte[] cmd = psScript.getBytes(Charset.forName("UTF-16LE"));
-        String arg = javax.xml.bind.DatatypeConverter.printBase64Binary(cmd);
-        return "powershell -encodedcommand " + arg;
+        return javax.xml.bind.DatatypeConverter.printBase64Binary(cmd);
     }
 
     /**
