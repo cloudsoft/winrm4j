@@ -61,6 +61,7 @@ public class WinRmClientBuilder {
     protected Map<String, String> environment;
 
     protected boolean disableCertificateChecks;
+    protected boolean allowChunking;
     protected HostnameVerifier hostnameVerifier;
     protected SSLSocketFactory sslSocketFactory;
 
@@ -212,6 +213,11 @@ public class WinRmClientBuilder {
      */
     public WinRmClientBuilder disableCertificateChecks(boolean disableCertificateChecks) {
         this.disableCertificateChecks = disableCertificateChecks;
+        return this;
+    }
+
+    public WinRmClientBuilder allowChunking(boolean allowChunking) {
+        this.allowChunking = allowChunking;
         return this;
     }
 

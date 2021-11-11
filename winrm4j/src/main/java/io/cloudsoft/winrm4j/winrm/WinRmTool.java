@@ -53,6 +53,7 @@ public class WinRmTool {
     private Long connectionTimeout;
     private Long receiveTimeout;
     private final boolean disableCertificateChecks;
+    private final boolean allowChunking;
     private final String workingDirectory;
     private final Map<String, String> environment;
     private final HostnameVerifier hostnameVerifier;
@@ -67,6 +68,7 @@ public class WinRmTool {
         private Boolean useHttps;
         private Integer port = null;
         private boolean disableCertificateChecks = false;
+        private boolean allowChunking = false;
         private String address;
         private String domain;
         private String username;
@@ -123,6 +125,12 @@ public class WinRmTool {
             return this;
         }
 
+        /** Can be used to turn on HTTP chunking. Experimental: chunking does not seem to work at present! */
+        public Builder allowChunking(boolean allowChunking) {
+            this.allowChunking = allowChunking;
+            return this;
+        }
+
         public Builder useHttps(boolean useHttps) {
             this.useHttps = useHttps;
             return this;
@@ -166,7 +174,7 @@ public class WinRmTool {
         public WinRmTool build() {
             return new WinRmTool(getEndpointUrl(address, useHttps, port),
                     domain, username, password, authenticationScheme,
-                    disableCertificateChecks, workingDirectory,
+                    allowChunking, disableCertificateChecks, workingDirectory,
                     environment, hostnameVerifier, sslSocketFactory, sslContext,
                     context, requestNewKerberosTicket, payloadEncryptionMode);
         }
@@ -209,34 +217,13 @@ public class WinRmTool {
         }
     }
 
-    @Deprecated /** @deprecated use bigger constructor */
-    private WinRmTool(String address, String domain, String username,
-            String password, String authenticationScheme,
-            boolean disableCertificateChecks, String workingDirectory,
-            Map<String, String> environment, HostnameVerifier hostnameVerifier,
-            SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context,
-            boolean requestNewKerberosTicket) {
-        this.disableCertificateChecks = disableCertificateChecks;
-        this.address = address;
-        this.domain = domain;
-        this.username = username;
-        this.password = password;
-        this.authenticationScheme = authenticationScheme;
-        this.workingDirectory = workingDirectory;
-        this.environment = environment;
-        this.hostnameVerifier = hostnameVerifier;
-        this.sslSocketFactory = sslSocketFactory;
-        this.sslContext = sslContext;
-        this.context = context;
-        this.requestNewKerberosTicket = requestNewKerberosTicket;
-    }
-
     private WinRmTool(String address, String domain, String username,
                       String password, String authenticationScheme,
-                      boolean disableCertificateChecks, String workingDirectory,
+                      boolean allowChunking, boolean disableCertificateChecks, String workingDirectory,
                       Map<String, String> environment, HostnameVerifier hostnameVerifier,
                       SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context,
                       boolean requestNewKerberosTicket, PayloadEncryptionMode payloadEncryptionMode) {
+        this.allowChunking = allowChunking;
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
         this.domain = domain;
@@ -364,6 +351,9 @@ public class WinRmTool {
         if (disableCertificateChecks) {
             LOG.trace("Disabled check for https connections " + this);
             builder.disableCertificateChecks(disableCertificateChecks);
+        }
+        if (allowChunking) {
+            builder.allowChunking(allowChunking);
         }
         if (hostnameVerifier != null) {
         	builder.hostnameVerifier(hostnameVerifier);
