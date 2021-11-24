@@ -463,7 +463,7 @@ public class WinRmTool {
     }
 
     public WinRmToolResponse executePs(String psCommand, Boolean skipCommandShell, Writer out, Writer err) {
-        return executeCommand("powershell", Arrays.asList("-encodedcommand", compileBase64(psCommand)), skipCommandShell, out, err);
+        return executeCommand("chcp " + codePage + " & powershell", Arrays.asList("-encodedcommand", compileBase64(psCommand)), skipCommandShell, out, err);
     }
 
     /**
