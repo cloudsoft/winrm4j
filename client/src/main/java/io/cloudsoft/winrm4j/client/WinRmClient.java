@@ -320,7 +320,7 @@ public class WinRmClient implements AutoCloseable {
         switch (authenticationScheme) {
             case AuthSchemes.BASIC:
                 if (builder.payloadEncryptionMode().isRequired()) {
-                    throw new IllegalStateException("Encryption is required, which is not compatible with auth");
+                    throw new IllegalStateException("Encryption is required, which is not compatible with basic auth");
                 }
                 bp.getRequestContext().put(BindingProvider.USERNAME_PROPERTY, username);
                 bp.getRequestContext().put(BindingProvider.PASSWORD_PROPERTY, password);
