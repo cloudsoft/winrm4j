@@ -142,8 +142,12 @@ public class ShellCommand implements AutoCloseable {
                  * If such Exception which has a code 2150858793 the client is expected to again trigger immediately a receive request.
                  * https://msdn.microsoft.com/en-us/library/cc251676.aspx
                  */
+                LOG.debug("WinRM received exceptional message from windows server, likely due to long-running operation (if so will continue, otherwise will rethrow: "+soapFault);
                 assertFaultCode(soapFault, WSMAN_FAULT_CODE_OPERATION_TIMEOUT_EXPIRED,
                         retryReceiveAfterOperationTimeout);
+            } catch (LinkageError error) {
+                LOG.warn("Error processing exception from windows server; javax.xml.soap and javax.xml.ws.soap likely using incompatible versions, rethrowing: "+error);
+                throw error;
             }
         }
     }
