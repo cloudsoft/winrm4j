@@ -26,5 +26,11 @@
       <jaxb:package name="io.cloudsoft.winrm4j.client.transfer" />
     </jaxb:schemaBindings>
   </jaxws:bindings>
+  <jaxws:bindings
+    node="wsdl:definitions/wsdl:types/xs:schema[@targetNamespace='http://schemas.xmlsoap.org/ws/2004/09/enumeration']">
+    <jaxb:schemaBindings>
+      <jaxb:package name="io.cloudsoft.winrm4j.client.enumeration" />
+    </jaxb:schemaBindings>
+  </jaxws:bindings>
 
 </jaxws:bindings>

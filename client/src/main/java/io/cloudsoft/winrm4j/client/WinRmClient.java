@@ -82,6 +82,7 @@ import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.client.wsman.OptionType;
 import sun.awt.image.ImageWatched.Link;
+import org.w3c.dom.Node;
 
 /**
  * TODO confirm if commands can be called in parallel in one shell (probably not)!
@@ -563,6 +564,42 @@ public class WinRmClient implements AutoCloseable {
             }
         }
         throw new IllegalStateException("Shell ID not fount in " + resourceCreated);
+    }
+
+    /**
+     * Executes a WMI query and returns all results as a list.
+     *
+     * @param namespace wmi namespace, default may be "root/cimv2/*"
+     * @param query     wmi query, e.g. "Select * From Win32_TimeZone"
+     * @return list of nodes
+     */
+    public List<Node> runWql(String namespace, String query) {
+        String resourceUri = "http://schemas.microsoft.com/wbem/wsman/1/wmi/" + namespace;
+        String dialect = "http://schemas.microsoft.com/wbem/wsman/1/WQL";
+        return enumerateAndPull(resourceUri, dialect, query);
+    }
+
+    /**
+     * Executes, enumerates and returns the result list.
+     *
+     * @param resourceUri remote resource uri to filter (must support enumeration)
+     * @param dialect     filter dialect
+     * @param filter      resource filter
+     * @return list of nodes
+     */
+    public List<Node> enumerateAndPull(String resourceUri, String dialect, String filter) {
+        try (EnumerateCommand command = new EnumerateCommand(
+                winrm,
+                resourceUri,
+                32000L,
+                () -> operationTimeout,
+                () -> locale,
+                retryReceiveAfterOperationTimeout
+        )) {
+            return command.execute(filter, dialect);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**

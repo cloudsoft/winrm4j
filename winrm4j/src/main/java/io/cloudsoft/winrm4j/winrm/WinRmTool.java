@@ -332,13 +332,9 @@ public class WinRmTool {
         return executeCommand(command, args, DEFAULT_SKIP_COMMAND_SHELL, null, null);
     }
 
-    public WinRmToolResponse executeCommand(String command, Writer out, Writer err) {
-        return executeCommand(command, null, DEFAULT_SKIP_COMMAND_SHELL, out, err);
-    }
-
-    public WinRmToolResponse executeCommand(String command, List<String> args, Boolean skipCommandShell, Writer out, Writer err) {
-        if (out==null) out = new StringWriter();
-        if (err==null) err = new StringWriter();
+    public WinRmClient buildClient(Writer out, Writer err) {
+        WinRmClient.checkNotNull(out, "Out Writer");
+        WinRmClient.checkNotNull(err, "Err Writer");
         WinRmClientBuilder builder = WinRmClient.builder(address);
         builder.authenticationScheme(authenticationScheme);
         if (operationTimeout != null) {
@@ -364,13 +360,13 @@ public class WinRmTool {
             builder.allowChunking(allowChunking);
         }
         if (hostnameVerifier != null) {
-        	builder.hostnameVerifier(hostnameVerifier);
+            builder.hostnameVerifier(hostnameVerifier);
         }
         if (sslSocketFactory != null) {
-        	builder.sslSocketFactory(sslSocketFactory);
+            builder.sslSocketFactory(sslSocketFactory);
         }
         if (sslContext != null) {
-        	builder.sslContext(sslContext);
+            builder.sslContext(sslContext);
         }
         if (workingDirectory != null) {
             builder.workingDirectory(workingDirectory);
@@ -389,9 +385,20 @@ public class WinRmTool {
         }
         builder.payloadEncryptionMode(payloadEncryptionMode);
 
+        return builder.build();
+    }
+
+    public WinRmToolResponse executeCommand(String command, Writer out, Writer err) {
+        return executeCommand(command, null, DEFAULT_SKIP_COMMAND_SHELL, out, err);
+    }
+
+    public WinRmToolResponse executeCommand(String command, List<String> args, Boolean skipCommandShell, Writer out, Writer err) {
+        if (out==null) out = new StringWriter();
+        if (err==null) err = new StringWriter();
+
         WinRmToolResponse winRmToolResponse;
 
-        try(WinRmClient client = builder.build()) {
+        try(WinRmClient client = buildClient(out, err)) {
             try (ShellCommand shell = client.createShell()) {
                 int code = shell.execute(command, args, skipCommandShell, out, err);
                 winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
