@@ -356,6 +356,9 @@ public class WinRmTool {
             LOG.trace("Disabled check for https connections " + this);
             builder.disableCertificateChecks(disableCertificateChecks);
         }
+        if (allowChunking) {
+            builder.allowChunking(allowChunking);
+        }
         if (hostnameVerifier != null) {
             builder.hostnameVerifier(hostnameVerifier);
         }
