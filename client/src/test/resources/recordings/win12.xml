@@ -209,6 +209,12 @@
               xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
             <ns2:Selector Name="ShellId">AF161CE1-3D3F-46B7-A101-800DD70639A9</ns2:Selector>
           </ns2:SelectorSet>
+          <ns2:OptionSet
+                  xmlns:ns1="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
+                  xmlns:ns2="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+                  xmlns:ns3="http://schemas.xmlsoap.org/ws/2004/09/transfer">
+            <ns2:Option Name="WSMAN_CMDSHELL_OPTION_KEEPALIVE">TRUE</ns2:Option>
+          </ns2:OptionSet>
         </soap:Header>
         <soap:Body>
           <ns1:Receive

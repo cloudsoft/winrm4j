@@ -122,11 +122,15 @@ public class ShellCommand implements AutoCloseable {
             stream.setCommandId(commandId);
             stream.setValue("stdout stderr");
             receive.setDesiredStream(stream);
-
+            final OptionSetType optSetCmd = new OptionSetType();
+            OptionType optKeepalive = new OptionType();
+            optKeepalive.setName("WSMAN_CMDSHELL_OPTION_KEEPALIVE");
+            optKeepalive.setValue("TRUE");
+            optSetCmd.getOption().add(optKeepalive);
 
             try {
                 numberOfReceiveCalls++;
-                ReceiveResponse receiveResponse = winrm.receive(receive, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector);
+                ReceiveResponse receiveResponse = winrm.receive(receive, WinRmClient.RESOURCE_URI, WinRmClient.MAX_ENVELOPER_SIZE, operationTimeout, locale, shellSelector, optSetCmd);
                 getStreams(receiveResponse, out, err);
 
                 CommandStateType state = receiveResponse.getCommandState();

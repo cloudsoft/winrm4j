@@ -171,8 +171,8 @@ public class RetryingProxyHandlerTest {
 		}
 
 		@Override
-		public ReceiveResponse receive(Receive receive, String resourceURI, int maxEnvelopeSize, String operationTimeout, Locale locale, SelectorSetType selectorSet) {
-			RecordedCall call = new RecordedCall("receive", Arrays.asList(receive, resourceURI, maxEnvelopeSize, operationTimeout, locale, selectorSet));
+		public ReceiveResponse receive(Receive receive, String resourceURI, int maxEnvelopeSize, String operationTimeout, Locale locale, SelectorSetType selectorSet, OptionSetType optionSet) {
+			RecordedCall call = new RecordedCall("receive", Arrays.asList(receive, resourceURI, maxEnvelopeSize, operationTimeout, locale, selectorSet, optionSet));
 			calls.add(call);
 			return (ReceiveResponse) handler.apply(call);
 		}

@@ -49,7 +49,9 @@ public class WinRm {
         @WebParam(name = "Locale", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
         Locale locale,
         @WebParam(name = "SelectorSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
-        SelectorSetType selectorSet
+        SelectorSetType selectorSet,
+        @WebParam(name = "OptionSet", targetNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd", header = true)
+        OptionSetType optionSet
     ) {
         return null;
     }
