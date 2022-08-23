@@ -430,6 +430,7 @@ public class WinRmTool {
             builder.requestNewKerberosTicket(requestNewKerberosTicket);
         }
         builder.payloadEncryptionMode(payloadEncryptionMode);
+        builder.codePage(codePage);
 
         WinRmToolResponse winRmToolResponse;
 
