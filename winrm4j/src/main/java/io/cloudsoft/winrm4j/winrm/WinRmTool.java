@@ -41,6 +41,16 @@ public class WinRmTool {
     public static final int DEFAULT_WINRM_HTTPS_PORT = 5986;
     public static final Boolean DEFAULT_SKIP_COMMAND_SHELL = Boolean.FALSE;
 
+    /**
+     * @see WinRmClientBuilder#DEFAULT_CODEPAGE
+     */
+    public static final int DEFAULT_CODEPAGE = WinRmClientBuilder.DEFAULT_CODEPAGE;
+
+    /**
+     * @see WinRmClientBuilder#UTF8_CODEPAGE
+     */
+    public static final int UTF8_CODEPAGE = WinRmClientBuilder.UTF8_CODEPAGE;
+
     // TODO consider make them non-final and accessing the properties directly from builder.
     // This impose moving getEndpointUrl() to the WinRmTool.
     private final String address;
@@ -64,6 +74,7 @@ public class WinRmTool {
     private final WinRmClientContext context;
     private final boolean requestNewKerberosTicket;
     private PayloadEncryptionMode payloadEncryptionMode;
+    private int codePage = DEFAULT_CODEPAGE;
 
     public static class Builder {
         private String authenticationScheme = AuthSchemes.NTLM;
@@ -83,6 +94,7 @@ public class WinRmTool {
         private WinRmClientContext context;
         private boolean requestNewKerberosTicket;
         private PayloadEncryptionMode payloadEncryptionMode;
+        private int codePage = DEFAULT_CODEPAGE;
 
         private static final Pattern matchPort = Pattern.compile(".*:(\\d+)$");
 
@@ -173,12 +185,17 @@ public class WinRmTool {
             return this;
         }
 
+        public Builder codePage(int codePage) {
+            this.codePage = codePage;
+            return this;
+        }
+
         public WinRmTool build() {
             return new WinRmTool(getEndpointUrl(address, useHttps, port),
                     domain, username, password, authenticationScheme,
                     allowChunking, disableCertificateChecks, workingDirectory,
                     environment, hostnameVerifier, sslSocketFactory, sslContext,
-                    context, requestNewKerberosTicket, payloadEncryptionMode);
+                    context, requestNewKerberosTicket, payloadEncryptionMode, codePage);
         }
 
         // TODO remove arguments when method WinRmTool.connect() is removed
@@ -219,12 +236,36 @@ public class WinRmTool {
         }
     }
 
+    @Deprecated /** @deprecated use bigger constructor */
+    private WinRmTool(String address, String domain, String username,
+            String password, String authenticationScheme,
+            boolean allowChunking, boolean disableCertificateChecks, String workingDirectory,
+            Map<String, String> environment, HostnameVerifier hostnameVerifier,
+            SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context,
+            boolean requestNewKerberosTicket) {
+        this.allowChunking = allowChunking;
+        this.disableCertificateChecks = disableCertificateChecks;
+        this.address = address;
+        this.domain = domain;
+        this.username = username;
+        this.password = password;
+        this.authenticationScheme = authenticationScheme;
+        this.workingDirectory = workingDirectory;
+        this.environment = environment;
+        this.hostnameVerifier = hostnameVerifier;
+        this.sslSocketFactory = sslSocketFactory;
+        this.sslContext = sslContext;
+        this.context = context;
+        this.requestNewKerberosTicket = requestNewKerberosTicket;
+    }
+
     private WinRmTool(String address, String domain, String username,
                       String password, String authenticationScheme,
                       boolean allowChunking, boolean disableCertificateChecks, String workingDirectory,
                       Map<String, String> environment, HostnameVerifier hostnameVerifier,
                       SSLSocketFactory sslSocketFactory, SSLContext sslContext, WinRmClientContext context,
-                      boolean requestNewKerberosTicket, PayloadEncryptionMode payloadEncryptionMode) {
+                      boolean requestNewKerberosTicket, PayloadEncryptionMode payloadEncryptionMode,
+                      int codePage) {
         this.allowChunking = allowChunking;
         this.disableCertificateChecks = disableCertificateChecks;
         this.address = address;
@@ -240,6 +281,7 @@ public class WinRmTool {
         this.context = context;
         this.requestNewKerberosTicket = requestNewKerberosTicket;
         this.payloadEncryptionMode = payloadEncryptionMode;
+        this.codePage = codePage;
     }
 
     /**
@@ -332,13 +374,9 @@ public class WinRmTool {
         return executeCommand(command, args, DEFAULT_SKIP_COMMAND_SHELL, null, null);
     }
 
-    public WinRmToolResponse executeCommand(String command, Writer out, Writer err) {
-        return executeCommand(command, null, DEFAULT_SKIP_COMMAND_SHELL, out, err);
-    }
-
-    public WinRmToolResponse executeCommand(String command, List<String> args, Boolean skipCommandShell, Writer out, Writer err) {
-        if (out==null) out = new StringWriter();
-        if (err==null) err = new StringWriter();
+    public WinRmClient buildClient(Writer out, Writer err) {
+        WinRmClient.checkNotNull(out, "Out Writer");
+        WinRmClient.checkNotNull(err, "Err Writer");
         WinRmClientBuilder builder = WinRmClient.builder(address);
         builder.authenticationScheme(authenticationScheme);
         if (operationTimeout != null) {
@@ -364,13 +402,13 @@ public class WinRmTool {
             builder.allowChunking(allowChunking);
         }
         if (hostnameVerifier != null) {
-        	builder.hostnameVerifier(hostnameVerifier);
+            builder.hostnameVerifier(hostnameVerifier);
         }
         if (sslSocketFactory != null) {
-        	builder.sslSocketFactory(sslSocketFactory);
+            builder.sslSocketFactory(sslSocketFactory);
         }
         if (sslContext != null) {
-        	builder.sslContext(sslContext);
+            builder.sslContext(sslContext);
         }
         if (workingDirectory != null) {
             builder.workingDirectory(workingDirectory);
@@ -388,10 +426,22 @@ public class WinRmTool {
             builder.requestNewKerberosTicket(requestNewKerberosTicket);
         }
         builder.payloadEncryptionMode(payloadEncryptionMode);
+        builder.codePage(codePage);
+
+        return builder.build();
+    }
+
+    public WinRmToolResponse executeCommand(String command, Writer out, Writer err) {
+        return executeCommand(command, null, DEFAULT_SKIP_COMMAND_SHELL, out, err);
+    }
+
+    public WinRmToolResponse executeCommand(String command, List<String> args, Boolean skipCommandShell, Writer out, Writer err) {
+        if (out==null) out = new StringWriter();
+        if (err==null) err = new StringWriter();
 
         WinRmToolResponse winRmToolResponse;
 
-        try(WinRmClient client = builder.build()) {
+        try(WinRmClient client = buildClient(out, err)) {
             try (ShellCommand shell = client.createShell()) {
                 int code = shell.execute(command, args, skipCommandShell, out, err);
                 winRmToolResponse = new WinRmToolResponse(out.toString(), err.toString(), code);
@@ -421,7 +471,7 @@ public class WinRmTool {
     }
 
     public WinRmToolResponse executePs(String psCommand, Boolean skipCommandShell, Writer out, Writer err) {
-        return executeCommand("powershell", Arrays.asList("-encodedcommand", compileBase64(psCommand)), skipCommandShell, out, err);
+        return executeCommand("chcp " + codePage + " > NUL & powershell", Arrays.asList("-encodedcommand", compileBase64(psCommand)), skipCommandShell, out, err);
     }
 
     /**
