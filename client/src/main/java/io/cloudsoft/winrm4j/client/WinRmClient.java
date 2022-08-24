@@ -97,6 +97,7 @@ public class WinRmClient implements AutoCloseable {
     private final Locale locale;
     private final Map<String, String> environment;
     private final PayloadEncryptionMode payloadEncryptionMode;
+    private final int codePage;
     private final WinRm service;
     private AsyncHttpEncryptionAwareConduitFactory factoryToCleanup;
 
@@ -206,6 +207,7 @@ public class WinRmClient implements AutoCloseable {
 
         this.workingDirectory = builder.workingDirectory;
         this.locale = builder.locale;
+        this.codePage = builder.codePage;
         this.operationTimeout = toDuration(builder.operationTimeout);
         this.retryReceiveAfterOperationTimeout = builder.retryReceiveAfterOperationTimeout;
         this.environment = builder.environment;
@@ -535,7 +537,7 @@ public class WinRmClient implements AutoCloseable {
         optSetCreate.getOption().add(optNoProfile);
         OptionType optCodepage = new OptionType();
         optCodepage.setName("WINRS_CODEPAGE");
-        optCodepage.setValue("437");
+        optCodepage.setValue(Integer.toString(codePage));
         optSetCreate.getOption().add(optCodepage);
 
         ResourceCreated resourceCreated = null;

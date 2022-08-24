@@ -22,6 +22,19 @@ import io.cloudsoft.winrm4j.client.wsman.Locale;
 
 public class WinRmClientBuilder {
     private static final java.util.Locale DEFAULT_LOCALE = java.util.Locale.US;
+
+    /**
+     * Older Windows systems may have issues with a modern UTF-8, so the default sticks with
+     * the legacy codepage 437 which is referred by en-us. However, for modern systems,
+     * the UTF-8 variant 65001 may be more suitable.
+     */
+    public static final int DEFAULT_CODEPAGE = 437;
+
+    /**
+     * Means using a UTF-8 codepage. If the remote system is older, this may have issues.
+     */
+    public static final int UTF8_CODEPAGE = 65001;
+
     /**
      * Timeout applied by default on client side for the opening of the socket (0 meaning infinite waiting).
      */
@@ -52,6 +65,7 @@ public class WinRmClientBuilder {
     protected String password;
     protected String workingDirectory;
     protected Locale locale;
+    protected int codePage;
     protected long operationTimeout;
     protected Predicate<String> retryReceiveAfterOperationTimeout;
     protected long connectionTimeout;
@@ -79,6 +93,7 @@ public class WinRmClientBuilder {
         this.endpoint = WinRmClient.checkNotNull(endpoint, "endpoint");
         authenticationScheme(AuthSchemes.NTLM);
         locale(DEFAULT_LOCALE);
+        codePage(DEFAULT_CODEPAGE);
         operationTimeout(DEFAULT_OPERATION_TIMEOUT);
         retryReceiveAfterOperationTimeout(alwaysRetryReceiveAfterOperationTimeout());
         connectionTimeout(DEFAULT_CONNECTION_TIMEOUT);
@@ -113,6 +128,14 @@ public class WinRmClientBuilder {
         Locale l = new Locale();
         l.setLang(WinRmClient.checkNotNull(locale, "locale").toLanguageTag());
         this.locale = l;
+        return this;
+    }
+
+    /**
+     * @param codePage The shell's codePage
+     */
+    public WinRmClientBuilder codePage(int codePage) {
+        this.codePage = codePage;
         return this;
     }
 
