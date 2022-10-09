@@ -50,17 +50,17 @@ import org.apache.cxf.service.model.ServiceInfo;
 import org.apache.cxf.transport.http.HTTPConduitFactory;
 import org.apache.cxf.transport.http.asyncclient.AsyncHTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
+import org.apache.cxf.transports.http.configuration.ProxyServerType;
 import org.apache.cxf.ws.addressing.policy.MetadataConstants;
 import org.apache.cxf.ws.policy.PolicyConstants;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.KerberosCredentials;
 import org.apache.http.client.config.AuthSchemes;
-import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
+import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.NTLMSchemeFactory;
-import org.apache.http.impl.client.TargetAuthenticationStrategy;
 import org.apache.neethi.Policy;
 import org.apache.neethi.builders.PrimitiveAssertion;
 import org.ietf.jgss.GSSContext;
@@ -81,7 +81,6 @@ import io.cloudsoft.winrm4j.client.transfer.ResourceCreated;
 import io.cloudsoft.winrm4j.client.wsman.Locale;
 import io.cloudsoft.winrm4j.client.wsman.OptionSetType;
 import io.cloudsoft.winrm4j.client.wsman.OptionType;
-import sun.awt.image.ImageWatched.Link;
 
 /**
  * TODO confirm if commands can be called in parallel in one shell (probably not)!
@@ -372,6 +371,12 @@ public class WinRmClient implements AutoCloseable {
                         "options are "+Arrays.asList(AuthSchemes.BASIC, AuthSchemes.NTLM, AuthSchemes.SPNEGO, AuthSchemes.KERBEROS));
         }
 
+        if (builder.proxyUserName() != null) {
+            if (authSchemeRegistry != null) {
+                authSchemeRegistry.put(AuthSchemes.BASIC, new BasicSchemeFactory());
+            }
+        }
+
         if (authSchemeRegistry!=null) {
             if (authSchemes==null) authSchemes = authSchemeRegistry.keySet();
             RegistryBuilder<AuthSchemeProvider> rb = RegistryBuilder.<AuthSchemeProvider>create();
@@ -418,6 +423,16 @@ public class WinRmClient implements AutoCloseable {
         httpClientPolicy.setConnectionTimeout(connectionTimeout);
         httpClientPolicy.setConnectionRequestTimeout(connectionRequestTimeout);
         httpClientPolicy.setReceiveTimeout(receiveTimeout);
+
+        if (builder.proxyServer() != null) {
+            httpClientPolicy.setProxyServer(builder.proxyServer());
+            httpClientPolicy.setProxyServerPort(builder.proxyServerPort());
+            httpClientPolicy.setProxyServerType(ProxyServerType.HTTP);
+        }
+        if (builder.proxyUserName() != null) {
+            httpClient.getProxyAuthorization().setUserName(builder.proxyUserName());
+            httpClient.getProxyAuthorization().setPassword(builder.proxyPassword());
+        }
 
         httpClient.setClient(httpClientPolicy);
         httpClient.getClient().setAutoRedirect(true);
