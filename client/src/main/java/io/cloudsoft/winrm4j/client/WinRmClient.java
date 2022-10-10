@@ -126,6 +126,15 @@ public class WinRmClient implements AutoCloseable {
     private static final Configuration JAAS_KERB_LOGIN_CONF = new KerberosJaasConfiguration();
 
     /**
+     * Default codepage of shell
+     */
+    public static final int DEFAULT_CODEPAGE = 437;
+    /**
+     * UTF8 codepage which usually use in non-ascii environment
+     */
+    public static final int UTF8_CODEPAGE = 65001;
+
+    /**
      * Create a WinRmClient builder
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
@@ -148,7 +157,7 @@ public class WinRmClient implements AutoCloseable {
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
-     * 
+     *
      * @deprecated since 0.6.0. Use {@link #builder(URL)} and {@link Builder#authenticationScheme(String)}.
      */
     @Deprecated
@@ -161,7 +170,7 @@ public class WinRmClient implements AutoCloseable {
      *
      * @param endpoint - the url of the WSMAN service in the format https://machine:5986/wsman
      * @param authenticationScheme - one of Basic, NTLM, Kerberos. Default is NTLM (with Negotiate).
-     * 
+     *
      * @deprecated since 0.5.0. Use {@link #builder(String)} and {@link Builder#authenticationScheme(String)}.
      */
     @Deprecated
@@ -229,7 +238,7 @@ public class WinRmClient implements AutoCloseable {
         }
     }
 
-    /** 
+    /**
      * @deprecated since 0.6.0. Re-build the client for a new operation timeout.
      * Note that the {@code receiveTimeout} is not changed.
      * {@code operationTimeout} is not a command time out but the polling
@@ -300,7 +309,7 @@ public class WinRmClient implements AutoCloseable {
 //        si.setProperty("soap.no.validate.parts", true);
 
         BindingProvider bp = (BindingProvider)winrm;
-        
+
         @SuppressWarnings("rawtypes")
         List<Handler> handlerChain = Arrays.<Handler>asList(new StripShellResponseHandler());
         bp.getBinding().setHandlerChain(handlerChain);
@@ -508,6 +517,17 @@ public class WinRmClient implements AutoCloseable {
      * {@link ShellCommand#close()} the returned object after usage.
      */
     public ShellCommand createShell() {
+        return createShell(DEFAULT_CODEPAGE);
+    }
+
+    /**
+     * Creates a Shell resource on the server, available for executing commands through the {@link ShellCommand} object.
+     * {@link ShellCommand#close()} the returned object after usage.
+     *
+     * @param codepage User can specify the code page to support non-ascii environment. Set to UTF8_CODEPAGE for using
+     *                 utf-8 encoding.
+     */
+    public ShellCommand createShell(int codepage) {
         final Shell shell = new Shell();
         shell.getInputStreams().add("stdin");
         shell.getOutputStreams().add("stdout");
@@ -534,7 +554,7 @@ public class WinRmClient implements AutoCloseable {
         optSetCreate.getOption().add(optNoProfile);
         OptionType optCodepage = new OptionType();
         optCodepage.setName("WINRS_CODEPAGE");
-        optCodepage.setValue("437");
+        optCodepage.setValue(String.valueOf(codepage));
         optSetCreate.getOption().add(optCodepage);
 
         ResourceCreated resourceCreated = null;
@@ -630,5 +650,4 @@ public class WinRmClient implements AutoCloseable {
         }
         return check;
     }
-
 }
