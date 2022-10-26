@@ -12,8 +12,7 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.SSLContext;
 
-import org.apache.cxf.transport.http.HTTPConduitFactory;
-import org.apache.http.auth.AuthScheme;
+import org.apache.cxf.transports.http.configuration.ProxyServerType;
 import org.apache.http.client.config.AuthSchemes;
 
 import io.cloudsoft.winrm4j.client.retry.RetryPolicy;
@@ -70,6 +69,10 @@ public class WinRmClientBuilder {
     protected PayloadEncryptionMode payloadEncryptionMode;
     protected Collection<String> targetAuthSchemes;
     protected AsyncHttpEncryptionAwareConduitFactory endpointConduitFactory;
+    private String proxyServer;
+    private Integer proxyServerPort;
+    private String proxyUserName;
+    private String proxyPassword;
 
     WinRmClientBuilder(String endpoint) {
         this(toUrlUnchecked(WinRmClient.checkNotNull(endpoint, "endpoint")));
@@ -317,4 +320,39 @@ public class WinRmClientBuilder {
         return targetAuthSchemes;
     }
 
+    public String proxyServer() {
+        return proxyServer;
+    }
+
+    public WinRmClientBuilder proxyServer(String proxyServer) {
+        this.proxyServer = proxyServer;
+        return this;
+    }
+
+    public Integer proxyServerPort() {
+        return proxyServerPort;
+    }
+
+    public WinRmClientBuilder proxyServerPort(Integer proxyServerPort) {
+        this.proxyServerPort = proxyServerPort;
+        return this;
+    }
+
+    public String proxyUserName() {
+        return proxyUserName;
+    }
+
+    public WinRmClientBuilder proxyUserName(String proxyUserName) {
+        this.proxyUserName = proxyUserName;
+        return this;
+    }
+
+    public String proxyPassword() {
+        return proxyPassword;
+    }
+
+    public WinRmClientBuilder proxyPassword(String proxyPassword) {
+        this.proxyPassword = proxyPassword;
+        return this;
+    }
 }
