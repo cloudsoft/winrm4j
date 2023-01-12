@@ -451,7 +451,7 @@ public class WinRmTool {
 
     private String compileBase64(String psScript) {
         byte[] cmd = psScript.getBytes(Charset.forName("UTF-16LE"));
-        return javax.xml.bind.DatatypeConverter.printBase64Binary(cmd);
+        return jakarta.xml.bind.DatatypeConverter.printBase64Binary(cmd);
     }
 
     /**
