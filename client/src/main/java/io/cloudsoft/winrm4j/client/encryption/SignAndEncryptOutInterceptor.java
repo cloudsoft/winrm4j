@@ -81,8 +81,11 @@ public class SignAndEncryptOutInterceptor extends AbstractPhaseInterceptor<Messa
             currentStream = new NullOutputStream();
 
             if (wrapped!=null) {
-                processAndShip(wrapped);
-                wrapped.close();
+                try {
+                    processAndShip(wrapped);
+                } finally {
+                    wrapped.close();
+                }
             } else {
                 LOG.warn("No stream for writing encrypted message to");
             }
